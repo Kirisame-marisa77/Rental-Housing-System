@@ -1,0 +1,29 @@
+diff --git a/pom.xml b/pom.xml
+index 09f6fab92c..d4d6d74cf5 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -15,6 +15,8 @@
+         <!-- 各种 module 拓展 -->
+         <module>yudao-module-system</module>
+         <module>yudao-module-infra</module>
++        <!-- 社区房屋租赁业务模块 -->
++        <module>yudao-module-rental</module>
+ <!--        <module>yudao-module-member</module>-->
+ <!--        <module>yudao-module-bpm</module>-->
+ <!--        <module>yudao-module-report</module>-->
+diff --git a/yudao-server/pom.xml b/yudao-server/pom.xml
+index b575dd6d42..917541b8fa 100644
+--- a/yudao-server/pom.xml
++++ b/yudao-server/pom.xml
+@@ -31,6 +31,11 @@
+             <artifactId>yudao-module-infra</artifactId>
+             <version>${revision}</version>
+         </dependency>
++        <dependency>
++            <groupId>cn.iocoder.boot</groupId>
++            <artifactId>yudao-module-rental</artifactId>
++            <version>${revision}</version>
++        </dependency>
+ 
+         <!-- 会员中心。默认注释，保证编译速度 -->
+ <!--        <dependency>-->

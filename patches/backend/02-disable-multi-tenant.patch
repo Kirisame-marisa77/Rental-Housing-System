@@ -1,0 +1,13 @@
+diff --git a/yudao-server/src/main/resources/application.yaml b/yudao-server/src/main/resources/application.yaml
+index e51ee22317..41fce7b921 100644
+--- a/yudao-server/src/main/resources/application.yaml
++++ b/yudao-server/src/main/resources/application.yaml
+@@ -324,7 +324,7 @@ yudao:
+     unit-test-enable: false # 是否生成单元测试
+     import-enable: false # 是否生成 Excel 导入接口
+   tenant: # 多租户相关配置项
+-    enable: true
++    enable: false
+     ignore-urls:
+       - /jmreport/* # 积木报表，无法携带租户编号
+     ignore-visit-urls:
