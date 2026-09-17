@@ -1,0 +1,175 @@
+<template>
+  <el-card>
+    <div class="toolbar">
+      <span class="title">我的合同</span>
+    </div>
+    <el-table :data="list" v-loading="loading">
+      <el-table-column prop="contractNo" label="合同编号" width="180" show-overflow-tooltip />
+      <el-table-column label="房源" min-width="180" show-overflow-tooltip>
+        <template #default="s">{{ houseText(s.row) }}</template>
+      </el-table-column>
+      <el-table-column prop="tenantName" label="租客" width="90" />
+      <el-table-column prop="tenantPhone" label="联系电话" width="120" />
+      <el-table-column prop="rentStartDate" label="租期开始" width="110" />
+      <el-table-column prop="rentEndDate" label="租期结束" width="110" />
+      <el-table-column prop="monthlyRent" label="月租金" width="90" />
+      <el-table-column prop="paymentMethod" label="付款方式" width="100" />
+      <el-table-column label="首期账单" width="100">
+        <template #default="s">
+          <el-tag v-if="s.row.status === 7" type="info">-</el-tag>
+          <el-tag v-else :type="s.row.firstBillPaid ? 'success' : 'warning'">
+            {{ s.row.firstBillPaid ? '已缴' : '待缴' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="状态" width="90">
+        <template #default="s">
+          <el-tag :type="statusType(s.row.status)">{{ statusLabel(s.row.status) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="170" fixed="right">
+        <template #default="s">
+          <el-button link type="primary" @click="openDetail(s.row)">详情</el-button>
+          <template v-if="s.row.status === 0">
+            <el-button v-if="!s.row.firstBillPaid" link type="primary" disabled>待租客缴费</el-button>
+            <el-button v-else link type="success" @click="handleSign(s.row)">确认签约</el-button>
+          </template>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <el-dialog v-model="detailVisible" title="合同详情" width="720px" top="5vh">
+      <div v-loading="detailLoading">
+        <el-descriptions :column="2" border size="small">
+          <el-descriptions-item label="合同编号">{{ detail?.contractNo || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="statusType(detail?.status)">{{ statusLabel(detail?.status) }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="房源" :span="2">{{ houseText(detail) }}</el-descriptions-item>
+          <el-descriptions-item label="户型 / 面积">
+            {{ detail?.layout || '-' }} / {{ detail?.squareArea ? detail.squareArea + ' ㎡' : '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="租客">
+            {{ detail?.tenantName || '-' }}{{ detail?.tenantPhone ? ' ' + detail.tenantPhone : '' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="租期" :span="2">
+            {{ detail?.rentStartDate || '-' }} ~ {{ detail?.rentEndDate || '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="月租金">{{ detail?.monthlyRent ?? '-' }} 元</el-descriptions-item>
+          <el-descriptions-item label="押金">{{ detail?.depositAmount ?? '-' }} 元</el-descriptions-item>
+          <el-descriptions-item label="付款方式">{{ detail?.paymentMethod || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="首期账单">
+            <template v-if="detail?.firstBillNo">
+              {{ detail.firstBillNo }}
+              <el-tag :type="detail.firstBillPaid ? 'success' : 'warning'">
+                {{ detail.firstBillPaid ? '已缴' : '待缴' }}
+              </el-tag>
+            </template>
+            <span v-else>-</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="业主签署">
+            {{ detail?.ownerSignTime ? detail.ownerSignTime.replace('T', ' ').slice(0, 19) : '未签署' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="租客签署">
+            {{ detail?.signTime ? detail.signTime.replace('T', ' ').slice(0, 19) : '未签署' }}
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <div class="section-title">合同正文</div>
+        <div v-if="detail?.content" class="content" v-html="detail.content"></div>
+        <el-empty v-else description="该合同暂无正文" :image-size="60" />
+      </div>
+      <template #footer>
+        <el-button @click="detailVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+  </el-card>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getOwnerContracts, getOwnerContract, signOwnerContract } from '../../api'
+
+const loading = ref(false)
+const list = ref([])
+
+const statusMap = [
+  { value: 0, label: '待签署' },
+  { value: 1, label: '待缴费' },
+  { value: 2, label: '生效中' },
+  { value: 3, label: '即将到期' },
+  { value: 4, label: '退租处理中' },
+  { value: 5, label: '已到期' },
+  { value: 6, label: '已退租' },
+  { value: 7, label: '已取消' }
+]
+const statusLabel = (s) => statusMap.find((i) => i.value === s)?.label || '-'
+const statusType = (s) => (s === 2 ? 'success' : s === 0 ? 'warning' : s === 7 ? 'danger' : 'info')
+
+const houseText = (row) => {
+  if (!row) return '-'
+  const addr = [row.communityName, row.buildingNo && `${row.buildingNo}栋`, row.roomNo && `${row.roomNo}室`]
+    .filter(Boolean)
+    .join(' ')
+  return addr || (row.houseId ? `房源 ${row.houseId}` : '-')
+}
+
+const getList = async () => {
+  loading.value = true
+  try {
+    const data = await getOwnerContracts()
+    list.value = data || []
+  } finally {
+    loading.value = false
+  }
+}
+
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const detail = ref(null)
+const openDetail = async (row) => {
+  detailVisible.value = true
+  detailLoading.value = true
+  detail.value = null
+  try {
+    detail.value = await getOwnerContract(row.id)
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+const handleSign = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      '确认签署该合同吗？双方签署且首期账单已缴清后合同即生效，房源将被占用（先到先得）。',
+      '确认签约',
+      { type: 'warning' }
+    )
+    await signOwnerContract(row.id)
+    ElMessage.success('签署成功')
+    getList()
+  } catch {}
+}
+
+onMounted(getList)
+</script>
+
+<style scoped>
+.toolbar {
+  margin-bottom: 12px;
+}
+.title {
+  font-size: 16px;
+  font-weight: 600;
+}
+.section-title {
+  margin: 14px 0 8px;
+  font-weight: 600;
+}
+.content {
+  line-height: 1.8;
+  max-height: 50vh;
+  overflow: auto;
+}
+</style>
