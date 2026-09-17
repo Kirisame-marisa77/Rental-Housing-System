@@ -13,7 +13,7 @@ SET NAMES utf8mb4;
 
 CREATE TABLE `rental_tenant_info` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `user_id` BIGINT NOT NULL COMMENT '关联会员用户ID（member_user.id）',
+    `user_id` BIGINT NULL COMMENT '关联会员用户ID（member_user.id）',
     `name` VARCHAR(50) DEFAULT NULL COMMENT '租客姓名（实名认证后填充）',
     `id_card` VARCHAR(18) DEFAULT NULL COMMENT '身份证号（实名认证后填充，加密存储）',
     `phone` VARCHAR(20) NOT NULL COMMENT '手机号',
