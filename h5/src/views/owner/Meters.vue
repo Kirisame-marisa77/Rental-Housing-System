@@ -1,39 +1,35 @@
 <template>
-  <div>
-    <el-card>
-      <div class="toolbar">
-        <span class="title">水电抄表</span>
-        <el-button type="primary" @click="openUpload">上传水电读数</el-button>
-      </div>
-      <el-table :data="list" v-loading="loading">
-        <el-table-column prop="id" label="记录ID" width="70" />
-        <el-table-column label="类型" width="70">
-          <template #default="s">{{ s.row.meterType === 1 ? '电表' : '水表' }}</template>
-        </el-table-column>
-        <el-table-column prop="currentReading" label="本期读数" width="90" />
-        <el-table-column label="谷段读数" width="90">
-          <template #default="s">{{ s.row.meterType === 1 ? s.row.valleyReading : '-' }}</template>
-        </el-table-column>
-        <el-table-column prop="usageAmount" label="用量" width="80" />
-        <el-table-column prop="feeAmount" label="费用(元)" width="90" />
-        <el-table-column prop="readingDate" label="抄表日期" width="110" />
-        <el-table-column label="审核" width="90">
-          <template #default="s">
-            <el-tag :type="reviewType(s.row.reviewStatus)">{{ reviewLabel(s.row.reviewStatus) }}</el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+  <AppPage title="水电抄表">
+    <template #actions>
+      <el-button type="primary" @click="openUpload">上传水电读数</el-button>
+    </template>
+
+    <CardList :data="list" :loading="loading" empty-text="还没有抄表记录">
+      <template #item="{ row }">
+        <!-- 抄表接口只返回 houseId，没有房源地址，所以副标题用 houseId -->
+        <InfoCard
+          :title="`${row.meterType === 1 ? '电表' : '水表'} · ${row.readingDate || ''}`"
+          :subtitle="row.houseId ? `房源 ${row.houseId}` : ''"
+          :tags="tagsOf(row)"
+          :fields="fieldsOf(row)"
+        />
+      </template>
+    </CardList>
 
     <el-dialog v-model="uploadVisible" title="上传水电读数" width="520px">
       <el-form :model="form" label-width="110px">
         <el-form-item label="房源">
-          <el-select v-model="form.houseId" class="w-full" placeholder="请选择房源">
-            <el-option v-for="h in houses" :key="h.id" :label="`${h.communityName} ${h.buildingNo}/${h.roomNo}`" :value="h.id" />
+          <el-select v-model="form.houseId" class="u-w-full" placeholder="请选择房源">
+            <el-option
+              v-for="h in houses"
+              :key="h.id"
+              :label="`${h.communityName} ${h.buildingNo}/${h.roomNo}`"
+              :value="h.id"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="合同ID">
-          <el-input-number v-model="form.contractId" :min="1" class="w-full" placeholder="请输入合同ID" />
+          <el-input-number v-model="form.contractId" :min="1" class="u-w-full" placeholder="请输入合同ID" />
         </el-form-item>
         <el-form-item label="抄表类型">
           <el-radio-group v-model="form.meterType">
@@ -42,16 +38,20 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item :label="form.meterType === 1 && isPeakValley ? '峰段读数' : '本期读数'">
-          <el-input-number v-model="form.currentReading" :min="0" :precision="2" class="w-full" />
+          <el-input-number v-model="form.currentReading" :min="0" :precision="2" class="u-w-full" />
         </el-form-item>
         <el-form-item v-if="form.meterType === 1 && isPeakValley" label="谷段读数">
-          <el-input-number v-model="form.valleyReading" :min="0" :precision="2" class="w-full" />
+          <el-input-number v-model="form.valleyReading" :min="0" :precision="2" class="u-w-full" />
         </el-form-item>
         <el-form-item label="抄表日期">
-          <el-date-picker v-model="form.readingDate" type="date" value-format="YYYY-MM-DD" class="w-full" />
+          <el-date-picker v-model="form.readingDate" type="date" value-format="YYYY-MM-DD" class="u-w-full" />
         </el-form-item>
         <el-form-item label="表盘截图">
-          <el-input v-model="imagesText" type="textarea" placeholder="图片URL，每行一张（水表1张，电表峰谷各1张）" />
+          <el-input
+            v-model="imagesText"
+            type="textarea"
+            placeholder="图片URL，每行一张（水表1张，电表峰谷各1张）"
+          />
         </el-form-item>
         <el-form-item label="备注"><el-input v-model="form.remark" /></el-form-item>
       </el-form>
@@ -60,25 +60,33 @@
         <el-button @click="uploadVisible = false">取消</el-button>
       </template>
     </el-dialog>
-  </div>
+  </AppPage>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getOwnerMeters, createOwnerMeterReading, getOwnerHouses } from '../../api'
+import { createOwnerMeterReading, getOwnerHouses, getOwnerMeters } from '../../api'
+import { reviewStatusLabel, reviewStatusType } from '../../utils/dict'
+import AppPage from '../../components/AppPage.vue'
+import CardList from '../../components/CardList.vue'
+import InfoCard from '../../components/InfoCard.vue'
 
 const loading = ref(false)
 const list = ref([])
 const houses = ref([])
 
-const reviewMap = [
-  { value: 0, label: '待审核' },
-  { value: 1, label: '已通过' },
-  { value: 2, label: '已驳回' }
+const tagsOf = (row) => [
+  { text: reviewStatusLabel(row.reviewStatus), type: reviewStatusType(row.reviewStatus) }
 ]
-const reviewLabel = (s) => reviewMap.find((i) => i.value === s)?.label || '-'
-const reviewType = (s) => (s === 1 ? 'success' : s === 2 ? 'danger' : 'warning')
+
+// 记录 ID 是内部主键，不上卡片；谷段读数只有峰谷电表才有，用 hidden 控制显隐
+const fieldsOf = (row) => [
+  { label: '本期读数', value: row.currentReading },
+  { label: '谷段读数', value: row.valleyReading, hidden: row.meterType !== 1 },
+  { label: '用量', value: row.usageAmount },
+  { label: '费用', value: `¥${row.feeAmount ?? 0}`, type: 'amount' }
+]
 
 const getList = async () => {
   loading.value = true
@@ -124,7 +132,8 @@ const openUpload = async () => {
   uploadVisible.value = true
 }
 
-const toJsonArray = (text) => JSON.stringify(text.split(/[\n,，;；]/).map((s) => s.trim()).filter(Boolean))
+const toJsonArray = (text) =>
+  JSON.stringify(text.split(/[\n,，;；]/).map((s) => s.trim()).filter(Boolean))
 
 const submit = async () => {
   if (!form.houseId || !form.contractId || form.currentReading == null || !form.readingDate) {
@@ -139,19 +148,3 @@ const submit = async () => {
 
 onMounted(getList)
 </script>
-
-<style scoped>
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-.title {
-  font-size: 16px;
-  font-weight: 600;
-}
-.w-full {
-  width: 100%;
-}
-</style>

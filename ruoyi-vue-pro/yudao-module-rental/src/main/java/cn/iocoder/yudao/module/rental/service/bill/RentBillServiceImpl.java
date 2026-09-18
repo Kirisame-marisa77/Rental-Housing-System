@@ -15,6 +15,7 @@ import cn.iocoder.yudao.module.rental.dal.mysql.bill.PaymentRecordMapper;
 import cn.iocoder.yudao.module.rental.dal.mysql.bill.RentBillMapper;
 import cn.iocoder.yudao.module.rental.dal.mysql.house.HouseMapper;
 import cn.iocoder.yudao.module.rental.service.contract.ContractService;
+import cn.iocoder.yudao.module.rental.util.PaymentMethodUtils;
 import com.google.common.annotations.VisibleForTesting;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -154,8 +155,12 @@ public class RentBillServiceImpl implements RentBillService {
     @Transactional(rollbackFor = Exception.class)
     public Long createFirstRentBillForContract(ContractDO contract) {
         LocalDate rentStartDate = contract.getRentStartDate() == null ? LocalDate.now() : contract.getRentStartDate();
-        BigDecimal rentAmount = contract.getMonthlyRent() == null ? BigDecimal.ZERO : contract.getMonthlyRent();
+        BigDecimal monthlyRent = contract.getMonthlyRent() == null ? BigDecimal.ZERO : contract.getMonthlyRent();
         BigDecimal depositAmount = contract.getDepositAmount() == null ? BigDecimal.ZERO : contract.getDepositAmount();
+        // 「押N付M」的付数决定首期一次交几个月租金，账期也跟着走 M 个月。
+        // 原实现写死 1 个月，导致押一付三的租客首期只交了 1 个月租金。
+        int payMonths = PaymentMethodUtils.payMonths(contract.getPaymentMethod());
+        BigDecimal rentAmount = monthlyRent.multiply(BigDecimal.valueOf(payMonths));
 
         RentBillDO bill = new RentBillDO();
         // 编号带上合同 ID，避免同一秒内生成的账单编号重复（uk_bill_no 唯一索引）
@@ -166,10 +171,13 @@ public class RentBillServiceImpl implements RentBillService {
         bill.setHouseId(contract.getHouseId());
         bill.setBillType(0); // 首期账单
         bill.setPeriodStart(rentStartDate);
-        bill.setPeriodEnd(rentStartDate.plusMonths(1).minusDays(1));
+        bill.setPeriodEnd(rentStartDate.plusMonths(payMonths).minusDays(1));
         bill.setRentAmount(rentAmount);
         bill.setDepositAmount(depositAmount);
         bill.setTotalAmount(rentAmount.add(depositAmount));
+        bill.setFeeDetail(String.format("首期：%d个月租金%s + 押金%s（%s）",
+                payMonths, rentAmount.toPlainString(), depositAmount.toPlainString(),
+                StrUtil.blankToDefault(contract.getPaymentMethod(), PaymentMethodUtils.DEFAULT)));
         bill.setPaidAmount(BigDecimal.ZERO);
         bill.setPayStatus(0); // 待缴费
         bill.setDueDate(LocalDate.now().plusDays(FIRST_BILL_DUE_DAYS));

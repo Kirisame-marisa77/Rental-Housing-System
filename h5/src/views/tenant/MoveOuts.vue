@@ -1,48 +1,31 @@
 <template>
   <div>
-    <el-card>
-      <div class="toolbar">
-        <span class="title">退租申请</span>
+    <AppPage title="退租申请">
+      <template #actions>
         <el-button type="primary" @click="openApply">申请退租</el-button>
-      </div>
-      <el-table :data="list" v-loading="loading">
-        <el-table-column prop="applyNo" label="申请编号" width="180" show-overflow-tooltip />
-        <el-table-column label="房源" min-width="180" show-overflow-tooltip>
-          <template #default="s">{{ houseText(s.row) }}</template>
-        </el-table-column>
-        <el-table-column label="退租类型" width="100">
-          <template #default="s">{{ s.row.moveOutType === 1 ? '提前退租' : '到期退租' }}</template>
-        </el-table-column>
-        <el-table-column prop="expectedMoveOutDate" label="预计退租日" width="120" />
-        <el-table-column prop="moveOutReason" label="原因" min-width="140" show-overflow-tooltip />
-        <el-table-column label="状态" width="90">
-          <template #default="s">
-            <el-tag :type="s.row.status === 1 ? 'success' : 'warning'">
-              {{ s.row.status === 1 ? '已处理' : '待处理' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="结算结果" width="140">
-          <template #default="s">
-            <span v-if="s.row.status !== 1">-</span>
-            <span v-else :class="s.row.refundOrPay >= 0 ? 'refund' : 'pay'">
-              {{ s.row.refundOrPay >= 0 ? '退还' : '补缴' }} ¥{{ Math.abs(s.row.refundOrPay ?? 0) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="90">
-          <template #default="s">
-            <el-button link type="primary" @click="openDetail(s.row)">详情</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+      </template>
+
+      <CardList :data="list" :loading="loading" empty-text="还没有退租申请">
+        <template #item="{ row }">
+          <InfoCard
+            :title="houseText(row, { style: 'unit', fallback: 'idOrDash' })"
+            :subtitle="row.applyNo"
+            :tags="tagsOf(row)"
+            :fields="fieldsOf(row)"
+          >
+            <template #actions>
+              <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+            </template>
+          </InfoCard>
+        </template>
+      </CardList>
+    </AppPage>
 
     <!-- 申请退租 -->
     <el-dialog v-model="applyVisible" title="申请退租" width="560px">
       <el-form :model="form" label-width="110px">
         <el-form-item label="合同">
-          <el-select v-model="form.contractId" class="w-full" placeholder="请选择要退租的合同">
+          <el-select v-model="form.contractId" class="u-w-full" placeholder="请选择要退租的合同">
             <el-option v-for="c in contracts" :key="c.id" :label="contractLabel(c)" :value="c.id" />
           </el-select>
         </el-form-item>
@@ -56,7 +39,7 @@
           </div>
         </el-form-item>
         <el-form-item label="预计退租日期">
-          <el-date-picker v-model="form.expectedMoveOutDate" type="date" value-format="YYYY-MM-DD" class="w-full" />
+          <el-date-picker v-model="form.expectedMoveOutDate" type="date" value-format="YYYY-MM-DD" class="u-w-full" />
         </el-form-item>
         <el-form-item label="退租原因">
           <el-input v-model="form.moveOutReason" type="textarea" :rows="3" placeholder="请说明退租原因" />
@@ -78,9 +61,7 @@
         </el-descriptions-item>
         <el-descriptions-item label="预计退租日期">{{ detail.expectedMoveOutDate || '-' }}</el-descriptions-item>
         <el-descriptions-item label="退租原因">{{ detail.moveOutReason || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          {{ detail.status === 1 ? '已处理' : '待处理' }}
-        </el-descriptions-item>
+        <el-descriptions-item label="状态">{{ statusLabel(detail.status) }}</el-descriptions-item>
         <template v-if="detail.status === 1">
           <el-descriptions-item label="房屋验收">{{ inspectionLabel(detail.inspectionResult) }}</el-descriptions-item>
           <el-descriptions-item label="押金处理">{{ detail.depositHandle || '-' }}</el-descriptions-item>
@@ -92,8 +73,12 @@
               {{ detail.refundOrPay >= 0 ? '应退还' : '应补缴' }} ¥{{ Math.abs(detail.refundOrPay ?? 0) }}
             </span>
           </el-descriptions-item>
-          <el-descriptions-item label="管理员备注">{{ detail.remark || '-' }}</el-descriptions-item>
         </template>
+        <!-- 驳回时只有备注有内容，单独放在模板外，否则驳回单会显示一大片 '-' -->
+        <el-descriptions-item v-if="detail.status === 2" label="驳回原因">
+          {{ detail.remark || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item v-else label="处理备注">{{ detail.remark || '-' }}</el-descriptions-item>
       </el-descriptions>
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
@@ -106,10 +91,22 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getTenantMoveOuts, createTenantMoveOut, getTenantContracts } from '../../api'
+import { houseText } from '../../utils/house'
+import AppPage from '../../components/AppPage.vue'
+import CardList from '../../components/CardList.vue'
+import InfoCard from '../../components/InfoCard.vue'
 
 const loading = ref(false)
 const list = ref([])
 const contracts = ref([])
+
+const statusMap = [
+  { value: 0, label: '待处理' },
+  { value: 1, label: '已处理' },
+  { value: 2, label: '已驳回' }
+]
+const statusLabel = (s) => statusMap.find((i) => i.value === s)?.label || '-'
+const statusType = (s) => (s === 1 ? 'success' : s === 2 ? 'danger' : 'warning')
 
 const inspectionMap = [
   { value: 0, label: '通过' },
@@ -118,13 +115,27 @@ const inspectionMap = [
 ]
 const inspectionLabel = (v) => (v == null ? '-' : inspectionMap.find((i) => i.value === v)?.label || '-')
 
-const houseText = (row) => {
-  if (!row) return '-'
-  const addr = [row.communityName, row.buildingNo && `${row.buildingNo}栋`, row.roomNo && `${row.roomNo}室`]
-    .filter(Boolean)
-    .join(' ')
-  return addr || (row.houseId ? `房源 ${row.houseId}` : '-')
-}
+const tagsOf = (row) => [{ text: statusLabel(row.status), type: statusType(row.status) }]
+
+const fieldsOf = (row) => [
+  { label: '退租类型', value: row.moveOutType === 1 ? '提前退租' : '到期退租' },
+  { label: '预计退租日', value: row.expectedMoveOutDate },
+  { label: '退租原因', value: row.moveOutReason, span: 2, clamp: 2 },
+  // 只有已处理的申请才有结算结果
+  {
+    label: '结算结果',
+    value: (r) =>
+      r.refundOrPay == null
+        ? '-'
+        : `${r.refundOrPay >= 0 ? '应退还' : '应补缴'} ¥${Math.abs(r.refundOrPay)}`,
+    span: 2,
+    type: 'amount',
+    hidden: (r) => r.status !== 1
+  },
+  { label: '房屋验收', value: inspectionLabel(row.inspectionResult), hidden: row.status !== 1 },
+  { label: '押金处理', value: row.depositHandle, hidden: row.status !== 1 },
+  { label: '欠费抵扣', value: `¥${row.deductionAmount ?? 0}`, hidden: row.status !== 1 }
+]
 
 const contractLabel = (c) =>
   [c.contractNo, c.communityName, c.roomNo && `${c.roomNo}室`].filter(Boolean).join(' · ') ||
@@ -177,7 +188,7 @@ const submitApply = async () => {
     expectedMoveOutDate: form.expectedMoveOutDate,
     moveOutReason: form.moveOutReason
   })
-  ElMessage.success('退租申请已提交，等待管理员验收结算')
+  ElMessage.success('退租申请已提交，等待房东验收结算')
   applyVisible.value = false
   getList()
 }

@@ -3,10 +3,15 @@ package cn.iocoder.yudao.module.rental.service.repair;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.rental.controller.admin.repair.vo.RepairOrderPageReqVO;
 import cn.iocoder.yudao.module.rental.controller.admin.repair.vo.RepairOrderSaveReqVO;
+import cn.iocoder.yudao.module.rental.dal.dataobject.contract.ContractDO;
+import cn.iocoder.yudao.module.rental.dal.dataobject.house.HouseDO;
 import cn.iocoder.yudao.module.rental.dal.dataobject.repair.RepairOrderDO;
 import cn.iocoder.yudao.module.rental.dal.dataobject.repair.RepairProgressDO;
+import cn.iocoder.yudao.module.rental.dal.mysql.contract.ContractMapper;
+import cn.iocoder.yudao.module.rental.dal.mysql.house.HouseMapper;
 import cn.iocoder.yudao.module.rental.dal.mysql.repair.RepairOrderMapper;
 import cn.iocoder.yudao.module.rental.dal.mysql.repair.RepairProgressMapper;
 import com.google.common.annotations.VisibleForTesting;
@@ -19,7 +24,10 @@ import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
+import static cn.iocoder.yudao.module.rental.enums.ErrorCodeConstants.HOUSE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.rental.enums.ErrorCodeConstants.REPAIR_ORDER_NOT_EXISTS;
+import static cn.iocoder.yudao.module.rental.enums.ErrorCodeConstants.REPAIR_ORDER_NOT_TENANT_HOUSE;
+import static cn.iocoder.yudao.module.rental.enums.ErrorCodeConstants.TENANT_NOT_LOGIN;
 
 /**
  * 维修工单 Service 实现类
@@ -29,10 +37,21 @@ import static cn.iocoder.yudao.module.rental.enums.ErrorCodeConstants.REPAIR_ORD
 @Service
 public class RepairOrderServiceImpl implements RepairOrderService {
 
+    /** 合同状态：2-生效中 */
+    private static final int CONTRACT_STATUS_ACTIVE = 2;
+    /** 合同状态：3-即将到期 */
+    private static final int CONTRACT_STATUS_EXPIRING = 3;
+    /** 合同状态：4-退租处理中（人还没搬走，仍然可以报修） */
+    private static final int CONTRACT_STATUS_MOVING_OUT = 4;
+
     @Resource
     private RepairOrderMapper repairOrderMapper;
     @Resource
     private RepairProgressMapper repairProgressMapper;
+    @Resource
+    private HouseMapper houseMapper;
+    @Resource
+    private ContractMapper contractMapper;
 
     @Override
     public Long createRepairOrder(RepairOrderSaveReqVO createReqVO) {
@@ -125,10 +144,32 @@ public class RepairOrderServiceImpl implements RepairOrderService {
 
     @Override
     public Long createRepairOrderByTenant(RepairOrderSaveReqVO createReqVO) {
+        Long tenantId = createReqVO.getTenantUserId();
+        if (tenantId == null) {
+            throw exception(TENANT_NOT_LOGIN);
+        }
+        HouseDO house = houseMapper.selectById(createReqVO.getHouseId());
+        if (house == null) {
+            throw exception(HOUSE_NOT_EXISTS);
+        }
+        // 只能对「自己正在租住」的房源报修：否则构造一个 houseId 就能给别人的房子派单，
+        // 而那个房源真正的房东会被无端拉进一张工单里
+        Long activeContracts = contractMapper.selectCount(new LambdaQueryWrapperX<ContractDO>()
+                .eq(ContractDO::getTenantUserId, tenantId)
+                .eq(ContractDO::getHouseId, createReqVO.getHouseId())
+                .in(ContractDO::getStatus, CONTRACT_STATUS_ACTIVE, CONTRACT_STATUS_EXPIRING,
+                        CONTRACT_STATUS_MOVING_OUT));
+        if (activeContracts == null || activeContracts == 0) {
+            throw exception(REPAIR_ORDER_NOT_TENANT_HOUSE);
+        }
         RepairOrderDO order = BeanUtils.toBean(createReqVO, RepairOrderDO.class);
         if (StrUtil.isBlank(order.getOrderNo())) {
             order.setOrderNo(generateOrderNo());
         }
+        // 工单必须带上房东：业主端「维修工单」是按 owner_id 过滤的，
+        // 不写的话这张工单永远到不了房东那里（原实现漏了这一步）
+        order.setOwnerId(house.getOwnerId());
+        order.setTenantUserId(tenantId);
         order.setStatus(0); // 待处理
         repairOrderMapper.insert(order);
         logProgress(order.getId(), order.getTenantUserId(), 0, "提交报修", "租客提交报修");

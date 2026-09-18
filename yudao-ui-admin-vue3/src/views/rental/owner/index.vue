@@ -40,6 +40,7 @@
   <!-- 列表 -->
   <ContentWrap>
     <el-table v-loading="loading" :data="list">
+      <el-table-column align="center" label="ID" prop="id" width="80" />
       <el-table-column align="center" label="业主姓名" prop="name" show-overflow-tooltip />
       <el-table-column align="center" label="手机号" prop="phone" width="130" />
       <el-table-column align="center" label="性别" width="80">

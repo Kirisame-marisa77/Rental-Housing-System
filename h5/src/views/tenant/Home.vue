@@ -1,57 +1,97 @@
 <template>
-  <el-card>
-    <h3>欢迎，{{ tenantName }}</h3>
-    <p class="desc">这里是租客端，您可以：</p>
-    <el-row :gutter="12">
-      <el-col :span="8" v-for="item in menus" :key="item.path">
-        <el-card shadow="hover" class="entry" @click="go(item.path)">
-          <div class="entry-title">{{ item.title }}</div>
-          <div class="entry-desc">{{ item.desc }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
-  </el-card>
+  <AppPage>
+    <div class="hello">
+      <div class="hello__title">你好，{{ tenantName }}</div>
+      <div class="u-tip">这里是租客端，可以完成下面的操作</div>
+    </div>
+
+    <div class="grid">
+      <div
+        v-for="item in entries"
+        :key="item.path"
+        class="grid__cell"
+        @click="router.push(item.path)"
+      >
+        <el-icon class="grid__icon"><component :is="item.icon" /></el-icon>
+        <div class="grid__text">
+          <div class="grid__title">{{ item.title }}</div>
+          <div class="grid__desc">{{ item.desc }}</div>
+        </div>
+      </div>
+    </div>
+  </AppPage>
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getUserName } from '../../auth'
+import { menusOf } from '../../menus'
+import AppPage from '../../components/AppPage.vue'
 
+/**
+ * 入口列表直接来自 menus.js —— 这里刻意不再自己维护一份菜单数组。
+ * 之前三处各写一份，加菜单时漏改过两次（加了菜单但首页入口没加）。
+ */
 const router = useRouter()
 const tenantName = getUserName('tenant') || '租客'
 
-const menus = [
-  { path: '/tenant/houses', title: '找房', desc: '浏览上架房源，收藏 / 预约看房 / 提交申请' },
-  { path: '/tenant/favorites', title: '我的收藏', desc: '收藏的房源，随时回看并申请' },
-  { path: '/tenant/appointments', title: '我的预约', desc: '查看看房预约及房东确认进度' },
-  { path: '/tenant/applies', title: '我的申请', desc: '查看租房申请及审批进度' },
-  { path: '/tenant/contracts', title: '我的合同', desc: '查看合同、确认签约' },
-  { path: '/tenant/bills', title: '我的账单', desc: '缴纳首期账单（押金 + 首月租金）' },
-  { path: '/tenant/announcements', title: '公告', desc: '查看社区公告与通知' },
-  { path: '/tenant/repairs', title: '报修', desc: '提交报修工单并跟踪处理进度' },
-  { path: '/tenant/profile', title: '个人信息', desc: '维护个人资料、改密码' }
-]
-
-const go = (path) => router.push(path)
+// 首页自身不需要入口；详情页这类 hidden 的也不列
+const entries = computed(() => menusOf('tenant').filter((m) => !m.hidden && m.path !== '/tenant/home'))
 </script>
 
 <style scoped>
-.desc {
-  color: #999;
-  margin: 8px 0 16px;
+.hello {
+  margin-bottom: 12px;
 }
-.entry {
-  cursor: pointer;
-  text-align: center;
-}
-.entry-title {
-  font-size: 16px;
+
+.hello__title {
+  font-size: 18px;
   font-weight: 600;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
-.entry-desc {
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-gap);
+}
+
+.grid__cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: #fff;
+  border-radius: var(--app-radius);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.grid__cell:active {
+  background: var(--el-fill-color-light);
+}
+
+.grid__icon {
+  font-size: 24px;
+  color: var(--el-color-primary);
+  flex-shrink: 0;
+}
+
+.grid__text {
+  min-width: 0;
+}
+
+.grid__title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.grid__desc {
   font-size: 12px;
-  color: #999;
-  line-height: 1.6;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
 }
 </style>

@@ -5,6 +5,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.List;
+
 @Schema(description = "管理后台 - 退租申请分页 Request VO")
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -19,7 +21,17 @@ public class MoveOutApplicationPageReqVO extends PageParam {
     @Schema(description = "退租类型：0-到期退租，1-提前退租", example = "0")
     private Integer moveOutType;
 
-    @Schema(description = "状态：0-待处理，1-已处理", example = "0")
+    @Schema(description = "状态：0-待处理，1-已处理，2-已驳回", example = "0")
     private Integer status;
+
+    /**
+     * 业主端内部使用：只查自己名下房源的退租申请。
+     *
+     * hidden = true 只影响 Swagger 文档，参数依然能从 query string 绑定进来，
+     * 所以业主端的 Service 必须**无条件覆盖**这个字段，绝不能信任入参 ——
+     * 否则构造一个 ?houseIds=别人的房源 就能看到别人的退租申请。
+     */
+    @Schema(description = "房源 ID 集合（业主端内部使用，前端无需传）", hidden = true)
+    private List<Long> houseIds;
 
 }

@@ -1,0 +1,93 @@
+/**
+ * Element Plus 窄屏覆盖
+ *
+ * 全部包在 @media (max-width: 640px) 里 —— 桌面宽度下行为与改动前完全一致，
+ * 这样任何一条出问题都只影响手机，不会连带把 PC 上的样子改坏。
+ *
+ * 为什么这里必须用 !important（依据 element-plus@2.14.5 源码，升级大版本要复核）：
+ *   - 弹窗：es/components/dialog/src/use-dialog.mjs 里是
+ *       style['--el-dialog-width'] = addUnit(props.width)
+ *     宽度被写成**元素内联的 CSS 变量**，而样式表里的 !important 能覆盖内联普通声明。
+ *   - 表单：非 label-position="top" 时，EP 给 label 写内联 width。
+ * 收益是 14 个弹窗文件、所有表单页面一行代码都不用改。
+ */
+@media (max-width: 640px) {
+  /* ---------- 弹窗 ---------- */
+  /* 原来硬编码的 520/620/720px 在 375px 屏上会直接溢出 */
+  .el-dialog {
+    --el-dialog-width: 92vw !important;
+    --el-dialog-margin-top: 5vh !important;
+    --el-dialog-border-radius: 14px;
+    --el-dialog-padding-primary: 14px;
+  }
+
+  /* 长表单（如上传房源的 35 个字段）滚到底也能直接点提交。
+     .el-overlay-dialog 本身是 fixed + overflow:auto 的滚动容器，sticky 相对它生效 */
+  .el-dialog__footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    background: var(--el-dialog-bg-color);
+    border-top: 1px solid var(--el-border-color-lighter);
+  }
+
+  /* ---------- 表单：标签在上、控件在下 ---------- */
+  /* 原来 80~130px 的固定标签宽度，在 345px 宽的弹窗里要吃掉三分之一以上 */
+  .el-dialog .el-form-item {
+    display: block;
+  }
+  .el-dialog .el-form-item__label {
+    width: fit-content !important;
+    height: auto;
+    display: block;
+    text-align: left;
+    line-height: 22px;
+    margin-bottom: 4px;
+    padding-right: 0;
+  }
+  .el-dialog .el-form-item__content {
+    margin-left: 0 !important;
+  }
+
+  /* owner/Houses.vue 的上传房源弹窗用 el-row + el-col :span="12" 强制双列，
+     窄屏下必须拆成单列 */
+  .el-dialog .el-col-12 {
+    max-width: 100%;
+    flex: 0 0 100%;
+  }
+
+  /* ---------- 触控目标 ---------- */
+  .el-button {
+    min-height: 40px;
+  }
+  /* link 型按钮是卡片操作区的主力，不能跟着撑到 40px。
+     这条必须放在上面那条之后 */
+  .el-button.is-link {
+    min-height: 32px;
+    padding: 4px 8px;
+  }
+
+  /* ---------- iOS 聚焦缩放 ---------- */
+  /* Safari 在 input 计算字号 < 16px 时会自动放大整个页面，且不会自动缩回。
+     EP 的基础字号是 14px，所以这里强制 16px */
+  .el-input__inner,
+  .el-textarea__inner,
+  .el-select__input {
+    font-size: 16px;
+  }
+
+  /* ---------- 描述列表 ---------- */
+  /* 两列布局在 345px 宽下会被挤成两行，先把密度调紧 */
+  .el-descriptions__label,
+  .el-descriptions__content {
+    font-size: 13px;
+    padding: 6px 8px !important;
+  }
+
+  /* ---------- 其他 ---------- */
+  /* 分页与消息提示无需处理：EP 的 .el-message 是 max-width:calc(100% - 32px)、
+     .el-message-box 是 width:100%;max-width:420px，本来就是响应式的 */
+  .el-card {
+    --el-card-padding: 14px;
+  }
+}

@@ -1,46 +1,51 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { roleFromPath, isLoggedIn, ROLE_HOME } from './auth'
+import { isLoggedIn, roleFromPath, ROLE_HOME } from './auth'
+import { MENUS } from './menus'
+import AppLayout from './components/AppLayout.vue'
 
 /**
- * 路由必须按角色加前缀：houses / applies / appointments / contracts / repairs / profile
- * 在两个角色的子路由里重名，而 createWebHistory 的路径必须唯一
+ * 路由不再手写 children，而是从 menus.js 生成。
+ *
+ * 这样「加一个页面」只需要改 menus.js 一行：路由、底部 tab、更多九宫格同时生效。
+ * 之前三处手写、漏改过两次（加了菜单但首页九宫格没加）。
  */
+
+// 懒加载：保留按页面分包的行为
+const pages = import.meta.glob('./views/**/*.vue')
+
+const page = (file) => {
+  const component = pages[`./views/${file}`]
+  if (!component) {
+    // 与 auth.js 的「在边界大声失败」保持一致：宁可启动就报错，
+    // 也不要等到用户点进那个菜单才白屏
+    throw new Error(`menus.js 引用了不存在的页面: src/views/${file}`)
+  }
+  return component
+}
+
+const childrenOf = (role) =>
+  MENUS[role].map((menu) => ({
+    path: menu.path, // 绝对路径，Vue Router 4 允许子路由用绝对路径
+    name: menu.path,
+    component: page(menu.file),
+    meta: { title: menu.title, role, menuPath: menu.parent || menu.path }
+  }))
+
 const routes = [
   { path: '/login', component: () => import('./views/Login.vue') },
   { path: '/register', component: () => import('./views/Register.vue') },
   {
+    // 两个角色共用同一个外壳组件，角色由路径推导（auth.js 的 roleFromPath）
     path: '/owner',
-    component: () => import('./views/owner/Layout.vue'),
+    component: AppLayout,
     redirect: '/owner/home',
-    children: [
-      { path: 'home', component: () => import('./views/owner/Home.vue'), meta: { title: '首页' } },
-      { path: 'houses', component: () => import('./views/owner/Houses.vue'), meta: { title: '我的房源' } },
-      { path: 'applies', component: () => import('./views/owner/Applies.vue'), meta: { title: '租房申请' } },
-      { path: 'appointments', component: () => import('./views/owner/Appointments.vue'), meta: { title: '看房预约' } },
-      { path: 'meters', component: () => import('./views/owner/Meters.vue'), meta: { title: '水电抄表' } },
-      { path: 'repairs', component: () => import('./views/owner/Repairs.vue'), meta: { title: '维修工单' } },
-      { path: 'contracts', component: () => import('./views/owner/Contracts.vue'), meta: { title: '合同' } },
-      { path: 'bills', component: () => import('./views/owner/Bills.vue'), meta: { title: '我的账单' } },
-      { path: 'profile', component: () => import('./views/owner/Profile.vue'), meta: { title: '个人信息' } }
-    ]
+    children: childrenOf('owner')
   },
   {
     path: '/tenant',
-    component: () => import('./views/tenant/Layout.vue'),
+    component: AppLayout,
     redirect: '/tenant/home',
-    children: [
-      { path: 'home', component: () => import('./views/tenant/Home.vue'), meta: { title: '首页' } },
-      { path: 'houses', component: () => import('./views/tenant/Houses.vue'), meta: { title: '找房' } },
-      { path: 'favorites', component: () => import('./views/tenant/Favorites.vue'), meta: { title: '我的收藏' } },
-      { path: 'appointments', component: () => import('./views/tenant/Appointments.vue'), meta: { title: '我的预约' } },
-      { path: 'announcements', component: () => import('./views/tenant/Announcements.vue'), meta: { title: '公告' } },
-      { path: 'applies', component: () => import('./views/tenant/Applies.vue'), meta: { title: '我的申请' } },
-      { path: 'contracts', component: () => import('./views/tenant/Contracts.vue'), meta: { title: '我的合同' } },
-      { path: 'bills', component: () => import('./views/tenant/Bills.vue'), meta: { title: '我的账单' } },
-      { path: 'move-outs', component: () => import('./views/tenant/MoveOuts.vue'), meta: { title: '退租申请' } },
-      { path: 'repairs', component: () => import('./views/tenant/Repairs.vue'), meta: { title: '报修' } },
-      { path: 'profile', component: () => import('./views/tenant/Profile.vue'), meta: { title: '个人信息' } }
-    ]
+    children: childrenOf('tenant')
   },
   {
     // 根路径：按已有会话选边；两端都有会话时业主优先（确定性行为）
@@ -51,7 +56,7 @@ const routes = [
       return '/login'
     }
   },
-  // 兜底：未注册路径不再白屏（原两个 App 都存在这个隐患）
+  // 兜底：未注册路径不再白屏
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 

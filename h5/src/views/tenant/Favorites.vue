@@ -1,56 +1,57 @@
 <template>
-  <el-card>
-    <div class="toolbar">
-      <span class="title">我的收藏</span>
-    </div>
-    <el-table :data="list" v-loading="loading">
-      <el-table-column label="房源" min-width="180" show-overflow-tooltip>
-        <template #default="s">{{ houseText(s.row) }}</template>
-      </el-table-column>
-      <el-table-column prop="layout" label="户型" width="120" show-overflow-tooltip />
-      <el-table-column prop="squareArea" label="面积(㎡)" width="90" />
-      <el-table-column prop="monthlyRent" label="月租金(元)" width="110" />
-      <el-table-column prop="ownerName" label="房东" width="90" />
-      <el-table-column prop="ownerPhone" label="房东电话" width="120" />
-      <el-table-column label="房源状态" width="90">
-        <template #default="s">
-          <el-tag :type="houseType(s.row.houseStatus)">{{ houseLabel(s.row.houseStatus) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="createTime" label="收藏时间" width="170" show-overflow-tooltip />
-      <el-table-column label="操作" width="150" fixed="right">
-        <template #default="s">
-          <el-button v-if="s.row.houseStatus === 1" link type="primary" @click="router.push('/tenant/houses')">
-            去申请
-          </el-button>
-          <el-button link type="danger" @click="handleCancel(s.row)">取消收藏</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-  </el-card>
+  <!-- loading 交给 CardList：遮罩只盖列表区，标题栏仍然可见、可点 -->
+  <AppPage title="我的收藏">
+    <CardList :data="list" :loading="loading" empty-text="还没有收藏任何房源">
+      <template #item="{ row }">
+        <InfoCard
+          :title="houseText(row, { style: 'slash', fallback: 'id' })"
+          :subtitle="[row.layout, row.squareArea && `${row.squareArea}㎡`].filter(Boolean).join(' · ')"
+          :tags="tagsOf(row)"
+          :fields="fieldsOf(row)"
+        >
+          <template #actions>
+            <el-button
+              v-if="row.houseStatus === 1"
+              link
+              type="primary"
+              @click="router.push('/tenant/houses')"
+            >
+              去申请
+            </el-button>
+            <el-button link type="danger" @click="handleCancel(row)">取消收藏</el-button>
+          </template>
+        </InfoCard>
+      </template>
+    </CardList>
+  </AppPage>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getTenantFavorites, cancelTenantFavorite } from '../../api'
+import { cancelTenantFavorite, getTenantFavorites } from '../../api'
+import { houseStatusLabel, houseStatusType } from '../../utils/dict'
+import { houseText } from '../../utils/house'
+import AppPage from '../../components/AppPage.vue'
+import CardList from '../../components/CardList.vue'
+import InfoCard from '../../components/InfoCard.vue'
 
 const router = useRouter()
 const loading = ref(false)
 const list = ref([])
 
-const houseMap = [
-  { value: 0, label: '下架' },
-  { value: 1, label: '上架' },
-  { value: 2, label: '已锁定' },
-  { value: 3, label: '已出租' }
+// 状态是枚举，进 tags；其余进 fields
+const tagsOf = (row) => [
+  { text: houseStatusLabel(row.houseStatus), type: houseStatusType(row.houseStatus) }
 ]
-const houseLabel = (s) => houseMap.find((i) => i.value === s)?.label || '-'
-const houseType = (s) => (s === 1 ? 'success' : s === 3 ? 'info' : s === 2 ? 'warning' : 'danger')
 
-const houseText = (row) =>
-  [row.communityName, row.buildingNo && `${row.buildingNo}/${row.roomNo}`].filter(Boolean).join(' ') || `房源 ${row.houseId}`
+const fieldsOf = (row) => [
+  { label: '月租金', value: `¥${row.monthlyRent ?? 0}`, type: 'amount' },
+  { label: '房东', value: row.ownerName },
+  { label: '房东电话', value: row.ownerPhone },
+  { label: '收藏时间', value: row.createTime }
+]
 
 const getList = async () => {
   loading.value = true
@@ -64,7 +65,8 @@ const getList = async () => {
 
 const handleCancel = async (row) => {
   try {
-    await ElMessageBox.confirm(`确认取消收藏「${houseText(row)}」吗？`, '取消收藏', { type: 'warning' })
+    const name = houseText(row, { style: 'slash', fallback: 'id' })
+    await ElMessageBox.confirm(`确认取消收藏「${name}」吗？`, '取消收藏', { type: 'warning' })
     await cancelTenantFavorite(row.houseId)
     ElMessage.success('已取消收藏')
     getList()
@@ -73,13 +75,3 @@ const handleCancel = async (row) => {
 
 onMounted(getList)
 </script>
-
-<style scoped>
-.toolbar {
-  margin-bottom: 12px;
-}
-.title {
-  font-size: 16px;
-  font-weight: 600;
-}
-</style>

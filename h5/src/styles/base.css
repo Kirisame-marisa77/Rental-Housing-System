@@ -1,0 +1,132 @@
+/**
+ * 基础样式：reset 修正 + 应用外壳 + 工具类
+ *
+ * 原先这些只存在于 App.vue 的非 scoped <style> 块里，现在统一收到这里，
+ * 让全局样式只有一个入口。
+ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  /* 防止 iOS 横屏时自动放大字号 */
+  -webkit-text-size-adjust: 100%;
+}
+
+/**
+ * 关键：body / #app 用 min-height 而不是 height。
+ *
+ * 原来写的是 height:100%，配合 Element Plus 的 useLockscreen（弹窗打开时
+ * 给 body 加 .el-popup-parent--hidden{overflow:hidden}）会出现：
+ * 长页面打开弹窗瞬间，body 被压成 100% 高且不可滚动 → html 不再有可滚动溢出
+ * → 浏览器把 scrollTop 钳到 0（页面跳到顶部），关闭弹窗后也回不到原位置。
+ * 卡片化之后列表更长，这个现象会非常明显。
+ */
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue',
+    'Microsoft YaHei', sans-serif;
+  color: var(--el-text-color-primary);
+  background: #f5f7fa;
+  /* 移动端点击不要出现灰色高亮块 */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ========== 应用外壳 ========== */
+
+.app-layout {
+  /* dvh 在移动浏览器里能正确避开地址栏伸缩，不支持的浏览器回退到 vh */
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--app-safe-top);
+}
+
+/*
+ * 顶栏 / 主区 / 底部 tab 三者都收在同一个最大宽度里并居中。
+ *
+ * H5 是移动端应用，但演示时经常会在笔记本浏览器里打开。如果不限制宽度，
+ * 1920px 屏幕上会出现「顶栏拉满、内容 640px 居中、底部 4 个 tab 被拉成
+ * 每格 480px 宽」的割裂观感。统一约束后，宽屏下呈现为居中的一条手机宽度列。
+ */
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: var(--app-content-max);
+  margin: 0 auto;
+  height: var(--app-header-h);
+  padding: 0 var(--app-page-x);
+  background: #fff;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.app-header__title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.app-header__spacer {
+  flex: 1;
+}
+
+.app-header__name {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.app-main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--app-content-max);
+  margin: 0 auto;
+  /* 底部内边距 = 固定 tab 栏高 + 安全区 + 一点余量，
+     否则页面最后一张卡片会被 tab 栏永久遮住 */
+  padding: var(--app-gap) var(--app-page-x)
+    calc(var(--app-tabbar-h) + var(--app-safe-b) + 14px);
+}
+
+/* ========== 工具类 ==========
+   统一用 u- 前缀：项目里已有 21 个页面各自定义了 scoped 的 .title / .tip / .w-full，
+   直接提升成全局类会在同一时刻静默影响那些还没迁移的页面，无法分批验证。 */
+
+.u-tip {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.u-amount {
+  color: var(--el-color-danger);
+  font-weight: 600;
+}
+
+.u-w-full {
+  width: 100%;
+}
+
+.ellipsis-1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 长文本截断。overflow-wrap:anywhere 是必须的：
+   houseText 拼出来的地址、合同编号这类没有空格的连续串，否则会把卡片撑宽 */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}

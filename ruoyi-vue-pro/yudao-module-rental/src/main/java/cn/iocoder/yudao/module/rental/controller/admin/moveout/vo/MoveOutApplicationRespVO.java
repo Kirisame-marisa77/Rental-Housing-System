@@ -38,11 +38,14 @@ public class MoveOutApplicationRespVO {
     @Schema(description = "关联退租结算单 ID", example = "1024")
     private Long settlementId;
 
-    @Schema(description = "状态：0-待处理，1-已处理", example = "0")
+    @Schema(description = "状态：0-待处理，1-已处理，2-已驳回", example = "0")
     private Integer status;
 
     @Schema(description = "处理人 ID", example = "1")
     private Long handlerId;
+
+    @Schema(description = "处理人类型：0-管理员，1-业主", example = "1")
+    private Integer handlerType;
 
     @Schema(description = "处理时间")
     private LocalDateTime handleTime;
@@ -56,7 +59,7 @@ public class MoveOutApplicationRespVO {
     @Schema(description = "维修费用明细说明")
     private String repairFeeDesc;
 
-    @Schema(description = "管理员备注")
+    @Schema(description = "处理备注")
     private String remark;
 
     @Schema(description = "押金处理方式")
@@ -84,5 +87,11 @@ public class MoveOutApplicationRespVO {
 
     @Schema(description = "房号")
     private String roomNo;
+
+    @Schema(description = "租客姓名")
+    private String tenantName;
+
+    @Schema(description = "租客手机号")
+    private String tenantPhone;
 
 }

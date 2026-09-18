@@ -49,14 +49,16 @@
       <el-table-column align="center" label="退还/补缴(元)" prop="refundOrPay" width="120" />
       <el-table-column align="center" label="状态" width="90">
         <template #default="scope">
-          <el-tag :type="scope.row.status === 1 ? 'success' : 'warning'">{{ statusLabel(scope.row.status) }}</el-tag>
+          <el-tag :type="scope.row.status === 1 ? 'success' : scope.row.status === 2 ? 'danger' : 'warning'">
+            {{ statusLabel(scope.row.status) }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column align="center" label="操作" width="200">
         <template #default="scope">
-          <el-button v-if="scope.row.status !== 1" v-hasPermi="['rental:moveout:update']" link type="success" @click="openConfirm(scope.row.id)">
-            处理退租
-          </el-button>
+          <!-- 退租处理已收归业主端（房东做房屋验收 + 费用结算）。管理端此处转为只读：
+               不再提供「处理退租」入口，避免与业主端的处理并发产生重复结算。
+               后端的 /rental/move-out/confirm 仍然保留并共用同一套 CAS 逻辑，作为运维兜底。 -->
           <el-button v-hasPermi="['rental:moveout:update']" link type="primary" @click="openForm('update', scope.row.id)">
             修改
           </el-button>
@@ -77,42 +79,6 @@
 
   <!-- 表单弹窗：添加/修改 -->
   <MoveOutForm ref="formRef" @success="getList" />
-
-  <!-- 处理退租弹窗（房屋验收 + 费用结算） -->
-  <Dialog v-model="confirmVisible" title="处理退租（房屋验收 + 费用结算）">
-    <el-form ref="confirmFormRef" :model="confirmData" label-width="130px">
-      <el-form-item label="房屋验收情况">
-        <!-- 取值必须是数字：inspection_result 列是 TINYINT，传中文在严格模式下直接报 1366 -->
-        <el-select v-model="confirmData.inspectionResult" class="!w-full">
-          <el-option label="通过" :value="0" />
-          <el-option label="轻微损坏" :value="1" />
-          <el-option label="严重损坏" :value="2" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="损坏维修费(元)">
-        <el-input-number v-model="confirmData.repairFee" :min="0" :precision="2" class="!w-full" />
-      </el-form-item>
-      <el-form-item label="维修费说明">
-        <el-input v-model="confirmData.repairFeeDesc" placeholder="维修费用明细说明" />
-      </el-form-item>
-      <el-form-item label="物业费欠费(元)">
-        <el-input-number v-model="confirmData.propertyFeeArrears" :min="0" :precision="2" class="!w-full" />
-      </el-form-item>
-      <el-form-item label="水电费欠费(元)">
-        <el-input-number v-model="confirmData.utilityFeeArrears" :min="0" :precision="2" class="!w-full" />
-      </el-form-item>
-      <el-form-item label="剩余租金(元)">
-        <el-input-number v-model="confirmData.remainingRent" :min="0" :precision="2" class="!w-full" />
-      </el-form-item>
-      <el-form-item label="备注">
-        <el-input v-model="confirmData.remark" type="textarea" placeholder="管理员备注" />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button type="primary" @click="submitConfirm">确 定</el-button>
-      <el-button @click="confirmVisible = false">取 消</el-button>
-    </template>
-  </Dialog>
 </template>
 
 <script lang="ts" setup>
@@ -145,7 +111,8 @@ const moveOutTypeLabel = (type?: number) => moveOutTypeOptions.find((i) => i.val
 
 const statusOptions = [
   { value: 0, label: '待处理' },
-  { value: 1, label: '已处理' }
+  { value: 1, label: '已处理' },
+  { value: 2, label: '已驳回' }
 ]
 const statusLabel = (status?: number) => statusOptions.find((i) => i.value === status)?.label || '-'
 
@@ -190,37 +157,6 @@ const handleDelete = async (id: number) => {
     message.success(t('common.delSuccess'))
     await getList()
   } catch {}
-}
-
-// 处理退租
-const confirmVisible = ref(false)
-const confirmFormRef = ref()
-const confirmData = reactive<MoveOutApi.MoveOutConfirmVO>({
-  id: undefined,
-  inspectionResult: 0,
-  repairFee: 0,
-  repairFeeDesc: '',
-  propertyFeeArrears: 0,
-  utilityFeeArrears: 0,
-  remainingRent: 0,
-  remark: ''
-})
-const openConfirm = (id: number) => {
-  confirmData.id = id
-  confirmData.inspectionResult = 0
-  confirmData.repairFee = 0
-  confirmData.repairFeeDesc = ''
-  confirmData.propertyFeeArrears = 0
-  confirmData.utilityFeeArrears = 0
-  confirmData.remainingRent = 0
-  confirmData.remark = ''
-  confirmVisible.value = true
-}
-const submitConfirm = async () => {
-  await MoveOutApi.confirmMoveOutApplication(confirmData)
-  message.success('处理成功')
-  confirmVisible.value = false
-  await getList()
 }
 
 onMounted(() => {

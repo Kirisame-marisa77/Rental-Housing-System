@@ -8,6 +8,8 @@ import cn.iocoder.yudao.module.rental.dal.dataobject.house.HouseDO;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.time.LocalDateTime;
+
 @Mapper
 public interface HouseMapper extends BaseMapperX<HouseDO> {
 
@@ -36,6 +38,24 @@ public interface HouseMapper extends BaseMapperX<HouseDO> {
                 .eq(HouseDO::getId, id)
                 .eq(HouseDO::getStatus, fromStatus)
                 .set(HouseDO::getStatus, toStatus));
+    }
+
+    /**
+     * 与 {@link #updateStatusByIdAndStatus} 相同的 CAS，额外可选地刷新「最近上架时间」
+     *
+     * 单独一个方法而不是给原方法加参数：原方法被合同抢占房源的逻辑复用，
+     * 动它会让签约流程也带上 onlineTime 的写入。
+     */
+    default int updateStatusWithOnlineTime(Long id, Integer fromStatus, Integer toStatus,
+                                           LocalDateTime onlineTime) {
+        LambdaUpdateWrapper<HouseDO> wrapper = new LambdaUpdateWrapper<HouseDO>()
+                .eq(HouseDO::getId, id)
+                .eq(HouseDO::getStatus, fromStatus)
+                .set(HouseDO::getStatus, toStatus);
+        if (onlineTime != null) {
+            wrapper.set(HouseDO::getOnlineTime, onlineTime);
+        }
+        return update(wrapper);
     }
 
 }

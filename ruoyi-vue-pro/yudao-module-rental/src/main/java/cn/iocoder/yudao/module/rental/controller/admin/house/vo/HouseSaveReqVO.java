@@ -7,6 +7,7 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Schema(description = "管理后台 - 房源创建/修改 Request VO")
 @Data
@@ -61,6 +62,9 @@ public class HouseSaveReqVO {
     @Schema(description = "押金金额（元）", example = "3500.00")
     private BigDecimal deposit;
 
+    @Schema(description = "付款方式：押N付M，N/M 各取 1~3", example = "押一付三")
+    private String paymentMethod;
+
     @Schema(description = "配套设施，JSON 格式", example = "[\"空调\",\"洗衣机\",\"冰箱\"]")
     private String facilities;
 
@@ -114,5 +118,16 @@ public class HouseSaveReqVO {
 
     @Schema(description = "电费谷段单价（元/度）", example = "0.30")
     private BigDecimal electricityValleyPrice;
+
+    // ========== 房源图片 ==========
+    // 图片不存在 rental_house 表里，而是 rental_house_image 的一图一行。
+    // 这里用两个 URL 列表承接前端表单，由 HouseServiceImpl.createHouseByOwner 拆成多行写入。
+    // 更新房源不走这两个字段（管理端编辑页用 /rental/house-image/save 单独维护图片）。
+
+    @Schema(description = "实景图 URL 列表，第一张作为封面", example = "[\"http://xxx/1.jpg\"]")
+    private List<String> realityImages;
+
+    @Schema(description = "户型图 URL 列表", example = "[\"http://xxx/layout.jpg\"]")
+    private List<String> layoutImages;
 
 }

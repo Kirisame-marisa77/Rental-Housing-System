@@ -79,9 +79,15 @@ public class SettlementBillDO extends BaseDO {
      */
     private BigDecimal refundOrPay;
     /**
-     * 处理人 ID，关联 sys_user
+     * 处理人 ID
+     *
+     * handlerType=0 时关联 sys_user（管理员），=1 时关联 rental_owner_info（业主）
      */
     private Long handlerId;
+    /**
+     * 处理人类型：0-管理员，1-业主
+     */
+    private Integer handlerType;
     /**
      * 处理时间
      */

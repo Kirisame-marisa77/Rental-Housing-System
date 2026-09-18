@@ -1,42 +1,47 @@
 <template>
-  <el-card>
-    <div class="toolbar">
-      <span class="title">看房预约</span>
-      <el-select v-model="query.status" placeholder="全部状态" clearable class="filter" @change="getList">
+  <AppPage title="看房预约">
+    <template #actions>
+      <el-select
+        v-model="query.status"
+        placeholder="全部状态"
+        clearable
+        class="filter"
+        @change="getList"
+      >
         <el-option v-for="s in statusMap" :key="s.value" :label="s.label" :value="s.value" />
       </el-select>
-    </div>
-    <el-table :data="list" v-loading="loading">
-      <el-table-column prop="appointmentDate" label="预约日期" width="110" />
-      <el-table-column label="时间段" width="130">
-        <template #default="s">{{ s.row.startTime }}-{{ s.row.endTime }}</template>
-      </el-table-column>
-      <el-table-column label="房源" min-width="180" show-overflow-tooltip>
-        <template #default="s">{{ houseText(s.row) }}</template>
-      </el-table-column>
-      <el-table-column prop="tenantName" label="租客" width="90" />
-      <el-table-column prop="tenantPhone" label="联系电话" width="120" />
-      <el-table-column label="状态" width="90">
-        <template #default="s">
-          <el-tag :type="statusType(s.row.status)">{{ statusLabel(s.row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="feedback" label="看房反馈" min-width="140" show-overflow-tooltip />
-      <el-table-column label="操作" width="110" fixed="right">
-        <template #default="s">
-          <el-button v-if="s.row.status === 0" link type="success" @click="handleConfirm(s.row)">确认</el-button>
-          <el-button v-else-if="s.row.status === 1" link type="primary" @click="handleComplete(s.row)">完成</el-button>
-          <span v-else>-</span>
-        </template>
-      </el-table-column>
-    </el-table>
-  </el-card>
+    </template>
+
+    <CardList :data="list" :loading="loading" empty-text="暂无看房预约">
+      <template #item="{ row }">
+        <InfoCard
+          :title="houseText(row, { style: 'slash', fallback: 'id' })"
+          :subtitle="[row.appointmentDate, `${row.startTime}-${row.endTime}`].filter(Boolean).join(' ')"
+          :tags="tagsOf(row)"
+          :fields="fieldsOf(row)"
+        >
+          <template #actions>
+            <el-button v-if="row.status === 0" link type="success" @click="handleConfirm(row)">
+              确认
+            </el-button>
+            <el-button v-else-if="row.status === 1" link type="primary" @click="handleComplete(row)">
+              完成
+            </el-button>
+          </template>
+        </InfoCard>
+      </template>
+    </CardList>
+  </AppPage>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getOwnerAppointments, confirmOwnerAppointment, completeOwnerAppointment } from '../../api'
+import { completeOwnerAppointment, confirmOwnerAppointment, getOwnerAppointments } from '../../api'
+import { houseText } from '../../utils/house'
+import AppPage from '../../components/AppPage.vue'
+import CardList from '../../components/CardList.vue'
+import InfoCard from '../../components/InfoCard.vue'
 
 const loading = ref(false)
 const list = ref([])
@@ -51,8 +56,14 @@ const statusMap = [
 const statusLabel = (s) => statusMap.find((i) => i.value === s)?.label || '-'
 const statusType = (s) => (s === 2 ? 'success' : s === 1 ? 'primary' : s === 3 ? 'info' : 'warning')
 
-const houseText = (row) =>
-  [row.communityName, row.buildingNo && `${row.buildingNo}/${row.roomNo}`].filter(Boolean).join(' ') || `房源 ${row.houseId}`
+const tagsOf = (row) => [{ text: statusLabel(row.status), type: statusType(row.status) }]
+
+// 租客姓名与电话合并成两格，方便直接拨号前辨认
+const fieldsOf = (row) => [
+  { label: '租客', value: row.tenantName },
+  { label: '联系电话', value: row.tenantPhone },
+  { label: '看房反馈', value: row.feedback, span: 2, clamp: 2 }
+]
 
 const getList = async () => {
   loading.value = true
@@ -93,17 +104,7 @@ onMounted(getList)
 </script>
 
 <style scoped>
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-.title {
-  font-size: 16px;
-  font-weight: 600;
-}
 .filter {
-  width: 140px;
+  width: 130px;
 }
 </style>

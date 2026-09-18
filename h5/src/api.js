@@ -65,10 +65,24 @@ export const getOwnerInfo = () => ownerRequest.get('/rental/owner-app/get')
 export const updateOwnerInfo = (data) => ownerRequest.put('/rental/owner-app/update', data)
 export const changeOwnerPassword = (oldPassword, newPassword) =>
   ownerRequest.put('/rental/owner-app/update-password', null, { params: { oldPassword, newPassword } })
+// 注销账号：用请求体传密码，避免密码出现在 URL / 访问日志里
+export const deregisterOwner = (password) =>
+  ownerRequest.put('/rental/owner-app/deregister', { password })
 
 // ===== 房源 =====
 export const getOwnerHouses = (params = {}) => ownerRequest.get('/rental/owner-app/house/page', { params })
 export const createOwnerHouse = (data) => ownerRequest.post('/rental/owner-app/house/create', data)
+export const updateOwnerHouseStatus = (id, online) =>
+  ownerRequest.put('/rental/owner-app/house/status', null, { params: { id, online } })
+
+// 上传房源图片：FormData 交给 axios 自动带 boundary，
+// 千万不要手写 Content-Type: multipart/form-data（会丢 boundary → 400）。
+// 也不能用 element-plus el-upload 的默认 action —— 它的内建 XHR 不带 Authorization。
+export const uploadOwnerHouseImage = (file) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return ownerRequest.post('/rental/owner-app/house/upload-image', fd)
+}
 
 // ===== 租房申请 =====
 export const getOwnerApplies = (params = {}) => ownerRequest.get('/rental/owner-app/apply/page', { params })
@@ -101,6 +115,14 @@ export const getOwnerContract = (id) =>
 export const signOwnerContract = (id) =>
   ownerRequest.put('/rental/owner-app/contract/sign', null, { params: { id } })
 
+// ===== 退租处理（只返回自己名下房源的申请）=====
+export const getOwnerMoveOuts = (params = {}) =>
+  ownerRequest.get('/rental/owner-app/move-out/page', { params })
+export const confirmOwnerMoveOut = (data) =>
+  ownerRequest.put('/rental/owner-app/move-out/confirm', data)
+export const rejectOwnerMoveOut = (id, reason) =>
+  ownerRequest.put('/rental/owner-app/move-out/reject', null, { params: { id, reason } })
+
 // ===== 我的账单（只读，按房源归属自动过滤，无需传 houseId）=====
 export const getOwnerRentBills = (params = {}) =>
   ownerRequest.get('/rental/owner-app/rent-bill/page', { params })
@@ -126,9 +148,14 @@ export const getTenantInfo = () => tenantRequest.get('/rental/tenant-app/get')
 export const updateTenantInfo = (data) => tenantRequest.put('/rental/tenant-app/update', data)
 export const changeTenantPassword = (oldPassword, newPassword) =>
   tenantRequest.put('/rental/tenant-app/update-password', null, { params: { oldPassword, newPassword } })
+// 注销账号：用请求体传密码，避免密码出现在 URL / 访问日志里
+export const deregisterTenant = (password) =>
+  tenantRequest.put('/rental/tenant-app/deregister', { password })
 
 // ===== 房源 =====
 export const getTenantHouses = (params = {}) => tenantRequest.get('/rental/tenant-app/house/page', { params })
+export const getTenantHouseDetail = (id) =>
+  tenantRequest.get('/rental/tenant-app/house/get', { params: { id } })
 
 // ===== 租房申请 =====
 export const createTenantApply = (data) => tenantRequest.post('/rental/tenant-app/apply/create', data)

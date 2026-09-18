@@ -1,28 +1,26 @@
 <template>
-  <div>
-    <el-card>
-      <div class="toolbar">
-        <span class="title">维修工单</span>
-      </div>
-      <el-table :data="list" v-loading="loading">
-        <el-table-column prop="orderNo" label="工单编号" width="170" show-overflow-tooltip />
-        <el-table-column prop="repairType" label="报修类型" width="100" />
-        <el-table-column prop="description" label="问题描述" show-overflow-tooltip />
-        <el-table-column label="状态" width="90">
-          <template #default="s">
-            <el-tag :type="statusType(s.row.status)">{{ statusLabel(s.row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="120">
-          <template #default="s">
-            <el-button v-if="[0, 1, 4].includes(s.row.status)" link type="primary" @click="openHandle(s.row)">
+  <AppPage title="维修工单">
+    <CardList :data="list" :loading="loading" empty-text="暂无维修工单">
+      <template #item="{ row }">
+        <InfoCard
+          :title="row.repairType || '维修工单'"
+          :subtitle="row.orderNo"
+          :tags="tagsOf(row)"
+          :fields="fieldsOf(row)"
+        >
+          <template #actions>
+            <el-button
+              v-if="[0, 1, 4].includes(row.status)"
+              link
+              type="primary"
+              @click="openHandle(row)"
+            >
               处理
             </el-button>
-            <span v-else>-</span>
           </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+        </InfoCard>
+      </template>
+    </CardList>
 
     <el-dialog v-model="handleVisible" title="处理维修（上传证据）" width="520px">
       <el-form :model="form" label-width="90px">
@@ -38,17 +36,21 @@
         <el-button @click="handleVisible = false">取消</el-button>
       </template>
     </el-dialog>
-  </div>
+  </AppPage>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getOwnerRepairs, handleOwnerRepairOrder } from '../../api'
+import AppPage from '../../components/AppPage.vue'
+import CardList from '../../components/CardList.vue'
+import InfoCard from '../../components/InfoCard.vue'
 
 const loading = ref(false)
 const list = ref([])
 
+// 报修状态两端文案相同，但与共享字典里其它字典无关，暂留本页
 const statusMap = [
   { value: 0, label: '待处理' },
   { value: 1, label: '处理中' },
@@ -58,6 +60,13 @@ const statusMap = [
 ]
 const statusLabel = (s) => statusMap.find((i) => i.value === s)?.label || '-'
 const statusType = (s) => (s === 3 ? 'success' : s === 4 ? 'danger' : s === 2 ? 'warning' : 'info')
+
+const tagsOf = (row) => [{ text: statusLabel(row.status), type: statusType(row.status) }]
+
+const fieldsOf = (row) => [
+  { label: '问题描述', value: row.description, span: 2, clamp: 2 },
+  { label: '维修说明', value: row.repairDescription, span: 2, clamp: 2 }
+]
 
 const getList = async () => {
   loading.value = true
@@ -80,7 +89,8 @@ const openHandle = (row) => {
   handleVisible.value = true
 }
 
-const toJsonArray = (text) => JSON.stringify(text.split(/[\n,，;；]/).map((s) => s.trim()).filter(Boolean))
+const toJsonArray = (text) =>
+  JSON.stringify(text.split(/[\n,，;；]/).map((s) => s.trim()).filter(Boolean))
 
 const submit = async () => {
   await handleOwnerRepairOrder(form.id, form.repairDescription, toJsonArray(evidenceText.value))
@@ -91,16 +101,3 @@ const submit = async () => {
 
 onMounted(getList)
 </script>
-
-<style scoped>
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-.title {
-  font-size: 16px;
-  font-weight: 600;
-}
-</style>

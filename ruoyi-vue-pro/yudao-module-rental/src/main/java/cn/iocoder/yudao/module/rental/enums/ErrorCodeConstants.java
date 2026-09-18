@@ -11,6 +11,8 @@ public interface ErrorCodeConstants {
 
     // ========== 房源 1-120-001-000 ==========
     ErrorCode HOUSE_NOT_EXISTS = new ErrorCode(1_120_001_001, "房源不存在");
+    ErrorCode HOUSE_STATUS_INVALID = new ErrorCode(1_120_001_003,
+            "房源当前状态不支持上下架（签约中/已出租的房源不能手动操作）");
 
     // ========== 租客 1-120-002-000 ==========
     ErrorCode TENANT_INFO_NOT_EXISTS = new ErrorCode(1_120_002_001, "租客不存在");
@@ -19,6 +21,12 @@ public interface ErrorCodeConstants {
     ErrorCode TENANT_LOGIN_FAILED = new ErrorCode(1_120_002_004, "手机号或密码错误");
     ErrorCode TENANT_NOT_LOGIN = new ErrorCode(1_120_002_005, "未登录或登录已过期");
     ErrorCode TENANT_OLD_PASSWORD_ERROR = new ErrorCode(1_120_002_006, "旧密码错误");
+    ErrorCode TENANT_HAS_ACTIVE_RENTAL = new ErrorCode(1_120_002_007,
+            "您还有未结束的租赁合同，请先办理退租后再注销账号");
+    ErrorCode TENANT_HAS_PENDING_MOVE_OUT = new ErrorCode(1_120_002_008,
+            "您有待处理的退租申请，无法注销账号");
+    ErrorCode TENANT_HAS_PENDING_APPLY = new ErrorCode(1_120_002_009,
+            "您有待房东审批的租房申请，无法注销账号");
 
     // ========== 租房申请 1-120-003-000 ==========
     ErrorCode APPLY_NOT_EXISTS = new ErrorCode(1_120_003_001, "租房申请不存在");
@@ -49,6 +57,8 @@ public interface ErrorCodeConstants {
     ErrorCode MOVE_OUT_CONTRACT_NOT_TENANT = new ErrorCode(1_120_007_004, "该合同不属于当前租客");
     ErrorCode MOVE_OUT_CONTRACT_STATUS_INVALID = new ErrorCode(1_120_007_005, "该合同当前状态不可申请退租（仅生效中/即将到期的合同可退租）");
     ErrorCode MOVE_OUT_APPLICATION_DUPLICATE = new ErrorCode(1_120_007_006, "该合同已有进行中的退租申请，不能重复提交");
+    ErrorCode MOVE_OUT_NOT_OWNER = new ErrorCode(1_120_007_007, "无权处理该退租申请（非本房源的房东）");
+    ErrorCode MOVE_OUT_REJECT_REASON_REQUIRED = new ErrorCode(1_120_007_008, "请填写驳回原因");
 
     // ========== 抄表 1-120-008-000 ==========
     ErrorCode METER_READING_NOT_EXISTS = new ErrorCode(1_120_008_001, "抄表记录不存在");
@@ -61,6 +71,8 @@ public interface ErrorCodeConstants {
 
     // ========== 维修工单 1-120-010-000 ==========
     ErrorCode REPAIR_ORDER_NOT_EXISTS = new ErrorCode(1_120_010_001, "维修工单不存在");
+    ErrorCode REPAIR_ORDER_NOT_TENANT_HOUSE = new ErrorCode(1_120_010_003,
+            "只能对自己正在租住的房源报修");
 
     // ========== 公告 1-120-011-000 ==========
     ErrorCode ANNOUNCEMENT_NOT_EXISTS = new ErrorCode(1_120_011_001, "公告不存在");
@@ -89,6 +101,14 @@ public interface ErrorCodeConstants {
     ErrorCode OWNER_LOGIN_FAILED = new ErrorCode(1_120_015_004, "手机号或密码错误");
     ErrorCode OWNER_NOT_LOGIN = new ErrorCode(1_120_015_005, "未登录或登录已过期");
     ErrorCode OWNER_OLD_PASSWORD_ERROR = new ErrorCode(1_120_015_006, "旧密码错误");
+    ErrorCode OWNER_HAS_ACTIVE_HOUSE = new ErrorCode(1_120_015_007,
+            "您名下还有正在出租或签约中的房源，请先处理后再注销账号");
+    ErrorCode OWNER_HAS_ACTIVE_CONTRACT = new ErrorCode(1_120_015_008,
+            "您名下的房源还有未结束的合同，无法注销账号");
+
+    // ========== 通用 1-120-016-000 ==========
+    ErrorCode FILE_EMPTY = new ErrorCode(1_120_016_001, "上传文件不能为空");
+    ErrorCode PASSWORD_CONFIRM_ERROR = new ErrorCode(1_120_016_002, "密码错误，请重新输入");
 
     // ========== 审核/判定相关 ==========
     ErrorCode HOUSE_ALREADY_REVIEWED = new ErrorCode(1_120_001_002, "房源已审核，不能重复审核");

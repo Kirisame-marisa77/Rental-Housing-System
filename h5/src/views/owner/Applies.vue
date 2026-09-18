@@ -1,47 +1,46 @@
 <template>
-  <el-card>
-    <div class="toolbar">
-      <span class="title">租房申请</span>
-      <el-select v-model="query.status" placeholder="全部状态" clearable class="filter" @change="getList">
+  <AppPage title="租房申请">
+    <template #actions>
+      <el-select
+        v-model="query.status"
+        placeholder="全部状态"
+        clearable
+        class="filter"
+        @change="getList"
+      >
         <el-option v-for="s in statusMap" :key="s.value" :label="s.label" :value="s.value" />
       </el-select>
-    </div>
-    <el-table :data="list" v-loading="loading">
-      <el-table-column prop="applyNo" label="申请编号" width="170" show-overflow-tooltip />
-      <el-table-column label="房源" min-width="180" show-overflow-tooltip>
-        <template #default="s">{{ houseText(s.row) }}</template>
-      </el-table-column>
-      <el-table-column prop="tenantName" label="租客" width="90" />
-      <el-table-column prop="tenantPhone" label="联系电话" width="120" />
-      <el-table-column prop="moveInDate" label="期望入住" width="110" />
-      <el-table-column prop="leaseTerm" label="租期(月)" width="80" />
-      <el-table-column prop="paymentMethod" label="付款方式" width="100" />
-      <el-table-column prop="monthlyRent" label="月租金" width="90" />
-      <el-table-column prop="depositAmount" label="押金" width="90" />
-      <el-table-column prop="tenantRemark" label="备注" min-width="120" show-overflow-tooltip />
-      <el-table-column label="状态" width="90">
-        <template #default="s">
-          <el-tag :type="statusType(s.row.status)">{{ statusLabel(s.row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="rejectReason" label="驳回原因" width="120" show-overflow-tooltip />
-      <el-table-column label="操作" width="130" fixed="right">
-        <template #default="s">
-          <template v-if="s.row.status === 0">
-            <el-button link type="success" @click="handleApprove(s.row)">同意</el-button>
-            <el-button link type="danger" @click="handleReject(s.row)">驳回</el-button>
+    </template>
+
+    <CardList :data="list" :loading="loading" empty-text="暂无租房申请">
+      <template #item="{ row }">
+        <InfoCard
+          :title="houseText(row, { style: 'slash', fallback: 'id' })"
+          :subtitle="row.applyNo"
+          :tags="tagsOf(row)"
+          :fields="fieldsOf(row)"
+        >
+          <template #actions>
+            <template v-if="row.status === 0">
+              <el-button link type="success" @click="handleApprove(row)">同意</el-button>
+              <el-button link type="danger" @click="handleReject(row)">驳回</el-button>
+            </template>
           </template>
-          <span v-else>-</span>
-        </template>
-      </el-table-column>
-    </el-table>
-  </el-card>
+        </InfoCard>
+      </template>
+    </CardList>
+  </AppPage>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getOwnerApplies, approveOwnerApply } from '../../api'
+import { approveOwnerApply, getOwnerApplies } from '../../api'
+import { applyStatusLabel, applyStatusType } from '../../utils/dict'
+import { houseText } from '../../utils/house'
+import AppPage from '../../components/AppPage.vue'
+import CardList from '../../components/CardList.vue'
+import InfoCard from '../../components/InfoCard.vue'
 
 const loading = ref(false)
 const list = ref([])
@@ -54,11 +53,20 @@ const statusMap = [
   { value: 3, label: '已签约' },
   { value: 4, label: '已失效' }
 ]
-const statusLabel = (s) => statusMap.find((i) => i.value === s)?.label || '-'
-const statusType = (s) => (s === 1 || s === 3 ? 'success' : s === 2 ? 'danger' : s === 4 ? 'info' : 'warning')
 
-const houseText = (row) =>
-  [row.communityName, row.buildingNo && `${row.buildingNo}/${row.roomNo}`].filter(Boolean).join(' ') || `房源 ${row.houseId}`
+const tagsOf = (row) => [{ text: applyStatusLabel(row.status), type: applyStatusType(row.status) }]
+
+const fieldsOf = (row) => [
+  { label: '月租金', value: `¥${row.monthlyRent ?? 0}`, type: 'amount' },
+  { label: '押金', value: `¥${row.depositAmount ?? 0}` },
+  { label: '付款方式', value: row.paymentMethod },
+  { label: '期望入住', value: row.moveInDate },
+  { label: '租期', value: row.leaseTerm != null ? `${row.leaseTerm} 个月` : '-' },
+  { label: '租客', value: row.tenantName },
+  { label: '联系电话', value: row.tenantPhone },
+  { label: '租客备注', value: row.tenantRemark, span: 2, clamp: 2 },
+  { label: '驳回原因', value: row.rejectReason, span: 2, clamp: 2 }
+]
 
 const getList = async () => {
   loading.value = true
@@ -73,7 +81,7 @@ const getList = async () => {
 const handleApprove = async (row) => {
   try {
     await ElMessageBox.confirm(
-      '同意后系统将自动生成租房合同和首期账单（押金 + 首月租金）。房源仍会保持上架，直到有租客完成签约并缴费。确认同意该申请吗？',
+      '同意后系统将自动生成租房合同和首期账单（押金 + 按付款方式确定的月数租金）。房源仍会保持上架，直到有租客完成签约并缴费。确认同意该申请吗？',
       '确认同意',
       { type: 'warning' }
     )
@@ -98,17 +106,7 @@ onMounted(getList)
 </script>
 
 <style scoped>
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-.title {
-  font-size: 16px;
-  font-weight: 600;
-}
 .filter {
-  width: 140px;
+  width: 130px;
 }
 </style>

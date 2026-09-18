@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f3efe6"/>
+      <stop offset="100%" stop-color="#d8cdb8"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#g)"/>
+  <rect x="0" y="420" width="800" height="180" fill="#c0a97f"/>
+  <rect x="90" y="250" width="260" height="170" rx="10" fill="#a8906a"/>
+  <rect x="115" y="275" width="95" height="60" rx="6" fill="#e6dcc6"/>
+  <rect x="230" y="275" width="95" height="60" rx="6" fill="#e6dcc6"/>
+  <rect x="480" y="300" width="230" height="120" rx="10" fill="#8d7a5c"/>
+  <rect x="520" y="150" width="150" height="120" rx="8" fill="#5d5040"/>
+  <rect x="536" y="166" width="118" height="88" fill="#f0e8d6"/>
+  <text x="400" y="90" font-family="Microsoft YaHei, sans-serif" font-size="40" fill="#5c4f3a" text-anchor="middle">客厅实景</text>
+  <text x="400" y="134" font-family="Microsoft YaHei, sans-serif" font-size="20" fill="#7a6a51" text-anchor="middle">演示占位图 · 非真实房源照片</text>
+</svg>

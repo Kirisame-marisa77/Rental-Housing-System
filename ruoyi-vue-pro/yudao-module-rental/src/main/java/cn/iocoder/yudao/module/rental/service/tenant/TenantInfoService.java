@@ -77,4 +77,15 @@ public interface TenantInfoService {
      */
     void changePassword(Long tenantId, String oldPassword, String newPassword);
 
+    /**
+     * 注销账号（逻辑删除，并释放手机号与身份证号以便重新注册）
+     *
+     * 前置条件：没有进行中的租赁合同、没有待审批的租房申请、没有待处理的退租申请。
+     * 历史合同与账单不受影响。
+     *
+     * @param tenantId 租客编号（来自登录态）
+     * @param password 登录密码，二次确认
+     */
+    void deregister(Long tenantId, String password);
+
 }

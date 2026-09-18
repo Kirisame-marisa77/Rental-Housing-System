@@ -18,6 +18,7 @@ import cn.iocoder.yudao.module.rental.controller.admin.favorite.vo.HouseFavorite
 import cn.iocoder.yudao.module.rental.controller.admin.viewing.vo.ViewingAppointmentPageReqVO;
 import cn.iocoder.yudao.module.rental.controller.admin.viewing.vo.ViewingAppointmentRespVO;
 import cn.iocoder.yudao.module.rental.controller.admin.viewing.vo.ViewingAppointmentSaveReqVO;
+import cn.iocoder.yudao.module.rental.controller.admin.house.vo.HouseDetailRespVO;
 import cn.iocoder.yudao.module.rental.controller.admin.house.vo.HousePageReqVO;
 import cn.iocoder.yudao.module.rental.controller.admin.house.vo.HouseRespVO;
 import cn.iocoder.yudao.module.rental.controller.admin.moveout.vo.MoveOutApplicationPageReqVO;
@@ -26,6 +27,7 @@ import cn.iocoder.yudao.module.rental.controller.admin.moveout.vo.MoveOutApplica
 import cn.iocoder.yudao.module.rental.controller.admin.repair.vo.RepairOrderPageReqVO;
 import cn.iocoder.yudao.module.rental.controller.admin.repair.vo.RepairOrderRespVO;
 import cn.iocoder.yudao.module.rental.controller.admin.repair.vo.RepairOrderSaveReqVO;
+import cn.iocoder.yudao.module.rental.controller.admin.tenant.vo.TenantDeregisterReqVO;
 import cn.iocoder.yudao.module.rental.controller.admin.tenant.vo.TenantInfoRespVO;
 import cn.iocoder.yudao.module.rental.controller.admin.tenant.vo.TenantInfoSaveReqVO;
 import cn.iocoder.yudao.module.rental.controller.admin.tenant.vo.TenantRegisterReqVO;
@@ -150,6 +152,18 @@ public class TenantAppController {
         return success(true);
     }
 
+    @PutMapping("/deregister")
+    @PermitAll
+    @Operation(summary = "注销账号（逻辑删除并释放手机号，可重新注册）")
+    public CommonResult<Boolean> deregister(@Valid @RequestBody TenantDeregisterReqVO reqVO) {
+        Long tenantId = getCurrentTenantId();
+        tenantInfoService.deregister(tenantId, reqVO.getPassword());
+        // 必须清 token：内存里的 token → tenantId 映射没有反向校验，
+        // 不清的话被注销的账号还能继续收藏、报修、下单
+        tenantAuthService.logoutAll(tenantId);
+        return success(true);
+    }
+
     // ========== 房源 ==========
 
     @GetMapping("/house/page")
@@ -159,6 +173,14 @@ public class TenantAppController {
         pageReqVO.setStatus(1); // 只展示上架房源
         PageResult<HouseDO> pageResult = houseService.getHousePage(pageReqVO);
         return success(BeanUtils.toBean(pageResult, HouseRespVO.class));
+    }
+
+    @GetMapping("/house/get")
+    @PermitAll
+    @Operation(summary = "查看房源详情（含图片、户型、地址与房东信息）")
+    public CommonResult<HouseDetailRespVO> getHouseDetail(@RequestParam("id") Long id) {
+        // 与上面的 /house/page 保持一致：详情不需要身份，未登录也能看
+        return success(houseService.getTenantHouseDetail(id));
     }
 
     // ========== 租房申请 ==========

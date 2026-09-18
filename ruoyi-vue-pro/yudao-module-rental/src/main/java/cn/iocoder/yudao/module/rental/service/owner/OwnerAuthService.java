@@ -49,4 +49,17 @@ public class OwnerAuthService {
         }
     }
 
+    /**
+     * 使某业主的全部 token 失效（注销账号时用）
+     *
+     * 只调 logout(token) 不够：同一个账号可能在多台设备 / 多个标签页登录，
+     * 内存里存着多条 token → id 的映射。不按 id 全清，被注销的账号还能继续操作。
+     */
+    public void logoutAll(Long ownerId) {
+        if (ownerId == null) {
+            return;
+        }
+        tokenOwnerMap.entrySet().removeIf(entry -> ownerId.equals(entry.getValue()));
+    }
+
 }

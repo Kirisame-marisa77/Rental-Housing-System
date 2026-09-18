@@ -1,8 +1,10 @@
 package cn.iocoder.yudao.module.rental.controller.admin.owner;
 
+import cn.hutool.core.io.IoUtil;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.rental.controller.admin.bill.vo.RentBillPageReqVO;
 import cn.iocoder.yudao.module.rental.controller.admin.bill.vo.RentBillRespVO;
 import cn.iocoder.yudao.module.rental.controller.admin.bill.vo.UtilityBillPageReqVO;
@@ -15,7 +17,11 @@ import cn.iocoder.yudao.module.rental.controller.admin.house.vo.HouseSaveReqVO;
 import cn.iocoder.yudao.module.rental.controller.admin.meter.vo.MeterReadingPageReqVO;
 import cn.iocoder.yudao.module.rental.controller.admin.meter.vo.MeterReadingRespVO;
 import cn.iocoder.yudao.module.rental.controller.admin.meter.vo.MeterReadingSaveReqVO;
+import cn.iocoder.yudao.module.rental.controller.admin.moveout.vo.MoveOutApplicationPageReqVO;
+import cn.iocoder.yudao.module.rental.controller.admin.moveout.vo.MoveOutApplicationRespVO;
+import cn.iocoder.yudao.module.rental.controller.admin.moveout.vo.MoveOutConfirmReqVO;
 import cn.iocoder.yudao.module.rental.controller.admin.contract.vo.ContractRespVO;
+import cn.iocoder.yudao.module.rental.controller.admin.owner.vo.OwnerDeregisterReqVO;
 import cn.iocoder.yudao.module.rental.controller.admin.owner.vo.OwnerInfoRespVO;
 import cn.iocoder.yudao.module.rental.controller.admin.owner.vo.OwnerInfoSaveReqVO;
 import cn.iocoder.yudao.module.rental.controller.admin.owner.vo.OwnerRegisterReqVO;
@@ -33,6 +39,7 @@ import cn.iocoder.yudao.module.rental.service.bill.UtilityBillService;
 import cn.iocoder.yudao.module.rental.service.contract.ContractService;
 import cn.iocoder.yudao.module.rental.service.house.HouseService;
 import cn.iocoder.yudao.module.rental.service.meter.MeterReadingService;
+import cn.iocoder.yudao.module.rental.service.moveout.MoveOutApplicationService;
 import cn.iocoder.yudao.module.rental.service.owner.OwnerAuthService;
 import cn.iocoder.yudao.module.rental.service.owner.OwnerInfoService;
 import cn.iocoder.yudao.module.rental.service.repair.RepairOrderService;
@@ -41,6 +48,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.annotation.security.PermitAll;
@@ -53,6 +61,7 @@ import java.util.Map;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.module.rental.enums.ErrorCodeConstants.CONTRACT_HOUSE_TAKEN;
+import static cn.iocoder.yudao.module.rental.enums.ErrorCodeConstants.FILE_EMPTY;
 import static cn.iocoder.yudao.module.rental.enums.ErrorCodeConstants.OWNER_NOT_LOGIN;
 
 @Tag(name = "业主端 - 业主自助")
@@ -66,9 +75,13 @@ public class OwnerAppController {
     @Resource
     private OwnerAuthService ownerAuthService;
     @Resource
+    private FileService fileService;
+    @Resource
     private HouseService houseService;
     @Resource
     private MeterReadingService meterReadingService;
+    @Resource
+    private MoveOutApplicationService moveOutApplicationService;
     @Resource
     private RepairOrderService repairOrderService;
     @Resource
@@ -141,6 +154,17 @@ public class OwnerAppController {
         return success(true);
     }
 
+    @PutMapping("/deregister")
+    @PermitAll
+    @Operation(summary = "注销账号（名下房源全部下架，逻辑删除并释放手机号）")
+    public CommonResult<Boolean> deregister(@Valid @RequestBody OwnerDeregisterReqVO reqVO) {
+        Long ownerId = getCurrentOwnerId();
+        ownerInfoService.deregister(ownerId, reqVO.getPassword());
+        // 必须清 token：内存映射不校验账号是否还存在，不清的话注销后还能继续操作
+        ownerAuthService.logoutAll(ownerId);
+        return success(true);
+    }
+
     // ========== 房源 ==========
 
     @PostMapping("/house/create")
@@ -158,6 +182,60 @@ public class OwnerAppController {
         pageReqVO.setOwnerId(getCurrentOwnerId());
         PageResult<HouseDO> pageResult = houseService.getHousePage(pageReqVO);
         return success(BeanUtils.toBean(pageResult, HouseRespVO.class));
+    }
+
+    @PostMapping("/house/upload-image")
+    @PermitAll
+    @Operation(summary = "业主上传房源图片，返回可直接渲染的 URL")
+    public CommonResult<String> uploadHouseImage(@RequestParam("file") MultipartFile file) throws Exception {
+        if (file == null || file.isEmpty()) {
+            throw exception(FILE_EMPTY);
+        }
+        byte[] content = IoUtil.readBytes(file.getInputStream());
+        // directory 固定 rental/house：便于运维按目录清理，也避免上传方自选路径
+        //
+        // 不能复用 /infra/file/upload —— 那个端点没有 @PermitAll，走的是 yudao 的
+        // OAuth2 鉴权，而 H5 用的是 rental 自己签发的内存 token，一定会 401。
+        // 返回的 URL 由 GET /infra/file/{configId}/get/** 提供，该端点有 @PermitAll，
+        // 所以 <img> 能直接渲染、不需要任何请求头。
+        return success(fileService.createFile(content, file.getOriginalFilename(),
+                "rental/house", file.getContentType()));
+    }
+
+    @PutMapping("/house/status")
+    @PermitAll
+    @Operation(summary = "业主上架/下架自己的房源")
+    public CommonResult<Boolean> updateHouseStatus(@RequestParam("id") Long id,
+                                                   @RequestParam("online") Boolean online) {
+        houseService.updateHouseStatusByOwner(getCurrentOwnerId(), id, online);
+        return success(true);
+    }
+
+    // ========== 退租处理 ==========
+
+    @GetMapping("/move-out/page")
+    @PermitAll
+    @Operation(summary = "我的房源收到的退租申请")
+    public CommonResult<PageResult<MoveOutApplicationRespVO>> getMoveOutPage(
+            @Validated MoveOutApplicationPageReqVO pageReqVO) {
+        return success(moveOutApplicationService.getOwnerMoveOutRespPage(getCurrentOwnerId(), pageReqVO));
+    }
+
+    @PutMapping("/move-out/confirm")
+    @PermitAll
+    @Operation(summary = "房东处理退租（房屋验收 + 费用结算，生成结算单）")
+    public CommonResult<Long> confirmMoveOut(@Valid @RequestBody MoveOutConfirmReqVO confirmReqVO) {
+        return success(moveOutApplicationService.ownerConfirmMoveOutApplication(
+                getCurrentOwnerId(), confirmReqVO));
+    }
+
+    @PutMapping("/move-out/reject")
+    @PermitAll
+    @Operation(summary = "房东驳回退租申请")
+    public CommonResult<Boolean> rejectMoveOut(@RequestParam("id") Long id,
+                                               @RequestParam("reason") String reason) {
+        moveOutApplicationService.ownerRejectMoveOutApplication(getCurrentOwnerId(), id, reason);
+        return success(true);
     }
 
     // ========== 抄表 ==========

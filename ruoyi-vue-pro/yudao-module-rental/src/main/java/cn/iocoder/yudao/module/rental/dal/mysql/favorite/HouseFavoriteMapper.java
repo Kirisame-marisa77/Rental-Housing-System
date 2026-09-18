@@ -45,4 +45,13 @@ public interface HouseFavoriteMapper extends BaseMapperX<HouseFavoriteDO> {
     @Delete("DELETE FROM rental_house_favorite WHERE house_id = #{houseId} AND tenant_user_id = #{tenantUserId}")
     int deletePhysicallyByHouseAndTenant(@Param("houseId") Long houseId, @Param("tenantUserId") Long tenantUserId);
 
+    /**
+     * 物理删除某租客的全部收藏（注销账号时清理）
+     *
+     * 与上面的单条删除同理：唯一键 uk_house_tenant 不含 deleted 列。
+     * 收藏是纯偏好数据、没有审计价值，注销后留着只会让后台统计「收藏数」虚高。
+     */
+    @Delete("DELETE FROM rental_house_favorite WHERE tenant_user_id = #{tenantUserId}")
+    int deletePhysicallyByTenant(@Param("tenantUserId") Long tenantUserId);
+
 }

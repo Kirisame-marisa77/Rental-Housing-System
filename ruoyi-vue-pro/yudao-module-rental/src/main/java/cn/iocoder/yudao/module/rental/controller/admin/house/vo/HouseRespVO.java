@@ -55,6 +55,9 @@ public class HouseRespVO {
     @Schema(description = "押金金额（元）", example = "3500.00")
     private BigDecimal deposit;
 
+    @Schema(description = "付款方式：押N付M，N/M 各取 1~3", example = "押一付三")
+    private String paymentMethod;
+
     @Schema(description = "配套设施，JSON 格式", example = "[\"空调\",\"洗衣机\",\"冰箱\"]")
     private String facilities;
 

@@ -103,6 +103,12 @@ public class ApplyServiceImpl implements ApplyService {
         apply.setRejectReason(null);
         apply.setContractId(null);
         apply.setTimeoutReason(null);
+        // 租金、押金、付款方式一律以房源上的为准，忽略客户端传入 —— 它们都是房源属性。
+        // 接口是 @PermitAll，不覆盖的话租客可以把 3600 改成 100、或者把房东定的
+        // 「押三付三」改成「押一付一」提交申请，房东审批时看到的就是被篡改过的条件
+        apply.setMonthlyRent(house.getMonthlyRent());
+        apply.setDepositAmount(house.getDeposit());
+        apply.setPaymentMethod(house.getPaymentMethod());
         applyMapper.insert(apply);
         return apply.getId();
     }

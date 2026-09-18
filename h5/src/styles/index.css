@@ -1,0 +1,9 @@
+/**
+ * 全局样式唯一入口
+ *
+ * 在 main.js 里必须放在 `import 'element-plus/dist/index.css'` **之后**，
+ * 顺序决定覆盖优先级（本文件里的 EP 覆盖要能盖住 EP 自己的样式）。
+ */
+@import './variables.css';
+@import './base.css';
+@import './element-mobile.css';

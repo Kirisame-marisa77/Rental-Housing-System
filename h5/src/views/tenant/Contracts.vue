@@ -1,55 +1,38 @@
 <template>
-  <el-card>
-    <div class="toolbar">
-      <span class="title">我的合同</span>
-    </div>
-    <el-table :data="list" v-loading="loading">
-      <el-table-column prop="contractNo" label="合同编号" width="180" show-overflow-tooltip />
-      <el-table-column label="房源" min-width="180" show-overflow-tooltip>
-        <template #default="s">{{ houseText(s.row) }}</template>
-      </el-table-column>
-      <el-table-column prop="ownerName" label="房东" width="90" />
-      <el-table-column prop="ownerPhone" label="房东电话" width="120" />
-      <el-table-column prop="rentStartDate" label="租期开始" width="110" />
-      <el-table-column prop="rentEndDate" label="租期结束" width="110" />
-      <el-table-column prop="monthlyRent" label="月租金" width="90" />
-      <el-table-column prop="paymentMethod" label="付款方式" width="100" />
-      <el-table-column label="首期账单" width="100">
-        <template #default="s">
-          <el-tag v-if="s.row.status === 7" type="info">-</el-tag>
-          <el-tag v-else :type="s.row.firstBillPaid ? 'success' : 'warning'">
-            {{ s.row.firstBillPaid ? '已缴' : '待缴' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="状态" width="90">
-        <template #default="s">
-          <el-tag :type="statusType(s.row.status)">{{ statusLabel(s.row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
-        <template #default="s">
-          <el-button link type="primary" @click="openDetail(s.row)">详情</el-button>
-          <template v-if="s.row.status === 0">
-            <el-button v-if="!s.row.firstBillPaid" link type="primary" @click="router.push('/tenant/bills')">去缴费</el-button>
-            <el-button v-else link type="success" @click="handleSign(s.row)">确认签约</el-button>
+  <AppPage title="我的合同">
+    <CardList :data="list" :loading="loading" empty-text="还没有合同">
+      <template #item="{ row }">
+        <InfoCard
+          :title="houseText(row, { style: 'unit', fallback: 'idOrDash' })"
+          :subtitle="row.contractNo"
+          :tags="tagsOf(row)"
+          :fields="fieldsOf(row)"
+        >
+          <template #actions>
+            <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+            <template v-if="row.status === 0">
+              <el-button v-if="!row.firstBillPaid" link type="primary" @click="router.push('/tenant/bills')">
+                去缴费
+              </el-button>
+              <el-button v-else link type="success" @click="handleSign(row)">确认签约</el-button>
+            </template>
+            <!-- 退租只对生效中/即将到期的合同开放，后端也会再校验一次 -->
+            <el-button
+              v-else-if="row.status === 2 || row.status === 3"
+              link
+              type="warning"
+              @click="router.push('/tenant/move-outs')"
+            >
+              申请退租
+            </el-button>
           </template>
-          <!-- 退租只对生效中/即将到期的合同开放，后端也会再校验一次 -->
-          <el-button
-            v-else-if="s.row.status === 2 || s.row.status === 3"
-            link
-            type="warning"
-            @click="router.push('/tenant/move-outs')"
-          >
-            申请退租
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+        </InfoCard>
+      </template>
+    </CardList>
 
     <el-dialog v-model="detailVisible" title="合同详情" width="720px" top="5vh">
       <div v-loading="detailLoading">
-        <el-descriptions :column="2" border size="small">
+        <el-descriptions :column="1" border size="small">
           <el-descriptions-item label="合同编号">{{ detail?.contractNo || '-' }}</el-descriptions-item>
           <el-descriptions-item label="状态">
             <el-tag :type="statusType(detail?.status)">{{ statusLabel(detail?.status) }}</el-tag>
@@ -90,7 +73,7 @@
         <el-button @click="detailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
-  </el-card>
+  </AppPage>
 </template>
 
 <script setup>
@@ -98,6 +81,10 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getTenantContracts, getTenantContract, signTenantContract } from '../../api'
+import { houseText } from '../../utils/house'
+import AppPage from '../../components/AppPage.vue'
+import CardList from '../../components/CardList.vue'
+import InfoCard from '../../components/InfoCard.vue'
 
 const router = useRouter()
 const loading = ref(false)
@@ -116,13 +103,22 @@ const statusMap = [
 const statusLabel = (s) => statusMap.find((i) => i.value === s)?.label || '-'
 const statusType = (s) => (s === 2 ? 'success' : s === 0 ? 'warning' : s === 7 ? 'danger' : 'info')
 
-const houseText = (row) => {
-  if (!row) return '-'
-  const addr = [row.communityName, row.buildingNo && `${row.buildingNo}栋`, row.roomNo && `${row.roomNo}室`]
-    .filter(Boolean)
-    .join(' ')
-  return addr || (row.houseId ? `房源 ${row.houseId}` : '-')
-}
+// 卡片用的标签与字段。首期账单只在合同未取消时有意义
+const tagsOf = (row) => [
+  { text: statusLabel(row.status), type: statusType(row.status) },
+  ...(row.status === 7
+    ? []
+    : [{ text: row.firstBillPaid ? '首期已缴' : '首期待缴', type: row.firstBillPaid ? 'success' : 'warning' }])
+]
+
+const fieldsOf = (row) => [
+  { label: '月租金', value: `¥${row.monthlyRent ?? 0}`, type: 'amount' },
+  { label: '付款方式', value: row.paymentMethod },
+  { label: '租期开始', value: row.rentStartDate },
+  { label: '租期结束', value: row.rentEndDate },
+  { label: '房东', value: row.ownerName },
+  { label: '房东电话', value: row.ownerPhone }
+]
 
 const getList = async () => {
   loading.value = true
@@ -187,13 +183,7 @@ onMounted(getList)
 </script>
 
 <style scoped>
-.toolbar {
-  margin-bottom: 12px;
-}
-.title {
-  font-size: 16px;
-  font-weight: 600;
-}
+/* 合同详情弹窗内部：正文分节标题与滚动区 */
 .section-title {
   margin: 14px 0 8px;
   font-weight: 600;
@@ -202,9 +192,10 @@ onMounted(getList)
   line-height: 1.8;
   max-height: 50vh;
   overflow: auto;
+  overflow-wrap: anywhere;
 }
 .progress-text {
-  color: #909399;
+  color: var(--el-text-color-secondary);
   font-size: 12px;
 }
 </style>

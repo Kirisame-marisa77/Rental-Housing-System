@@ -1,0 +1,28 @@
+/**
+ * 设计变量
+ *
+ * 主色沿用 Element Plus 的 --el-* 变量，这里只补「应用自己的尺寸」与少量密度微调。
+ * 想整体调整间距/圆角/栏高，改这一个文件即可。
+ */
+:root {
+  /* 页面骨架 */
+  --app-page-x: 12px; /* 页面左右内边距 */
+  --app-gap: 10px; /* 卡片之间的间距 */
+  --app-radius: 12px;
+  --app-radius-sm: 8px;
+  --app-header-h: 48px;
+  --app-tabbar-h: 52px;
+
+  /* iPhone 刘海屏安全区。没有 viewport-fit=cover 时 env() 恒为 0，
+     所以必须带兜底值，不能直接用 env() */
+  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-safe-b: env(safe-area-inset-bottom, 0px);
+
+  /* 平板 / 折叠屏上限制内容宽度，避免卡片被拉成一条 */
+  --app-content-max: 640px;
+
+  /* 移动端把 EP 的默认圆角调大一点，观感更接近原生 App */
+  --el-border-radius-base: 10px;
+  --el-card-border-radius: var(--app-radius);
+  --el-card-padding: 14px;
+}

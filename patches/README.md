@@ -14,6 +14,7 @@ git apply ../patches/backend/02-disable-multi-tenant.patch
 
 cd ../yudao-ui-admin-vue3
 git apply ../patches/admin-ui/01-branding-and-routing.patch
+git apply ../patches/admin-ui/02-lan-api-proxy.patch
 ```
 
 补丁基于以下上游基线生成，若上游版本不同可能产生冲突：
@@ -46,10 +47,24 @@ git apply ../patches/admin-ui/01-branding-and-routing.patch
 管理端前端的品牌与路由调整：
 
 - `.env`：系统标题改为「社区房屋租赁管理系统」、`VITE_APP_TENANT_ENABLE=false`、默认登录租户名同步修改
-- `.env.local`：`VITE_APP_API_ENCRYPT_ENABLE=false`（本地后端未开启接口加解密，前端必须同步关闭，否则登录报错）
+- `.env.local`：`VITE_APP_API_ENCRYPT_ENABLE=false`（本地后端未开启接口加解密，前端必须同步关闭，否则登录报错）；`VITE_BASE_URL=''`（见补丁 02 的说明，两者是同一次改动）
 - `src/api/login/index.ts`：租户名做 `encodeURIComponent`（中文租户名直接拼进 URL 会出错）
 - `src/router/modules/remaining.ts`：首页重定向改为 `/rental/house`，隐藏原首页
 - `src/views/Login/**`、`src/locales/zh-CN.ts`：登录页去掉租户选择框、文案调整
+
+### `admin-ui/02-lan-api-proxy.patch`
+
+让管理端能在局域网里被别的设备访问：
+
+- `.env.local`：`VITE_BASE_URL` 置空（与补丁 01 同一处改动）
+- `vite.config.ts`：打开 `/admin-api` 代理，目标 `http://127.0.0.1:48080`
+
+**为什么必须改**：管理端的接口地址原本是 `VITE_BASE_URL + VITE_API_URL` 拼出来的
+**绝对地址** `http://localhost:48080/admin-api`。从另一台电脑或手机打开管理端时，
+`localhost` 指的是**访问者自己**，所有接口都会失败。
+改成相对路径 `/admin-api` 后由 Vite 代理转发，不管从哪台机器访问都能用。
+
+**注意**：代理的 target 必须写死 `127.0.0.1:48080`，不能用 `VITE_BASE_URL`——它已经被置空了。
 
 ## 未纳入补丁的改动
 

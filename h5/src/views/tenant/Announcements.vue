@@ -1,26 +1,31 @@
 <template>
-  <el-card>
-    <div class="toolbar">
-      <span class="title">公告</span>
-      <el-select v-model="query.category" placeholder="全部分类" clearable class="filter" @change="getList">
+  <AppPage title="公告">
+    <template #actions>
+      <el-select
+        v-model="query.category"
+        placeholder="全部分类"
+        clearable
+        class="filter"
+        @change="getList"
+      >
         <el-option v-for="c in categories" :key="c" :label="c" :value="c" />
       </el-select>
-    </div>
-    <el-table :data="list" v-loading="loading" @row-click="openDetail">
-      <el-table-column label="标题" min-width="220" show-overflow-tooltip>
-        <template #default="s">
-          <el-tag v-if="s.row.isTop === 1" type="danger" size="small" class="mr">置顶</el-tag>
-          <span class="link">{{ s.row.title }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="category" label="分类" width="110" />
-      <el-table-column prop="publishTime" label="发布时间" width="170" show-overflow-tooltip />
-      <el-table-column label="状态" width="80">
-        <template #default="s">
-          <el-tag :type="s.row.isRead ? 'info' : 'danger'">{{ s.row.isRead ? '已读' : '未读' }}</el-tag>
-        </template>
-      </el-table-column>
-    </el-table>
+    </template>
+
+    <CardList :data="list" :loading="loading" empty-text="暂无公告">
+      <template #item="{ row }">
+        <!-- 原来是 el-table 的 @row-click，卡片化后必须显式接到 clickable 上，
+             否则「点一行看公告」会无声失效（不报错，最难发现的一类） -->
+        <InfoCard
+          :title="row.title"
+          :subtitle="row.publishTime"
+          :tags="tagsOf(row)"
+          :fields="fieldsOf(row)"
+          clickable
+          @click="openDetail(row)"
+        />
+      </template>
+    </CardList>
 
     <el-dialog v-model="detailVisible" :title="detail?.title" width="640px" top="6vh">
       <div class="meta">
@@ -34,17 +39,27 @@
         <el-button @click="detailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
-  </el-card>
+  </AppPage>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { getTenantAnnouncements, getTenantAnnouncement, readTenantAnnouncement } from '../../api'
+import { onMounted, reactive, ref } from 'vue'
+import { getTenantAnnouncement, getTenantAnnouncements, readTenantAnnouncement } from '../../api'
+import AppPage from '../../components/AppPage.vue'
+import CardList from '../../components/CardList.vue'
+import InfoCard from '../../components/InfoCard.vue'
 
 const loading = ref(false)
 const list = ref([])
 const query = reactive({ category: undefined })
 const categories = ['缴费通知', '维修通知', '社区公告', '紧急通知']
+
+const tagsOf = (row) => [
+  ...(row.isTop === 1 ? [{ text: '置顶', type: 'danger' }] : []),
+  { text: row.isRead ? '已读' : '未读', type: row.isRead ? 'info' : 'danger' }
+]
+
+const fieldsOf = (row) => [{ label: '分类', value: row.category }]
 
 const getList = async () => {
   loading.value = true
@@ -74,24 +89,8 @@ onMounted(getList)
 </script>
 
 <style scoped>
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-.title {
-  font-size: 16px;
-  font-weight: 600;
-}
 .filter {
-  width: 140px;
-}
-.mr {
-  margin-right: 6px;
-}
-.link {
-  cursor: pointer;
+  width: 130px;
 }
 .meta {
   display: flex;
@@ -100,12 +99,13 @@ onMounted(getList)
   margin-bottom: 12px;
 }
 .time {
-  color: #999;
+  color: var(--el-text-color-secondary);
   font-size: 12px;
 }
 .content {
   line-height: 1.8;
   max-height: 60vh;
   overflow: auto;
+  overflow-wrap: anywhere;
 }
 </style>

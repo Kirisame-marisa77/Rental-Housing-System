@@ -28,10 +28,22 @@ index 5a7a24a21..706ea5a4d 100644
  VITE_APP_DEFAULT_LOGIN_PASSWORD = admin123
  
 diff --git a/.env.local b/.env.local
-index 3df8b0bd8..d398cb1ae 100644
+index 3df8b0bd8..1752e0b77 100644
 --- a/.env.local
 +++ b/.env.local
-@@ -33,5 +33,8 @@ VITE_MALL_H5_DOMAIN='http://localhost:3000'
+@@ -4,7 +4,10 @@ NODE_ENV=development
+ VITE_DEV=true
+ 
+ # 请求路径
+-VITE_BASE_URL='http://localhost:48080'
++# 置空 = 接口走相对路径 /admin-api，由 vite.config.ts 的 proxy 转发到本机后端。
++# 原来写死 http://localhost:48080，从局域网里别的设备打开管理端时，
++# localhost 会指向访问者自己，接口全部失败。
++VITE_BASE_URL=''
+ 
+ # 文件上传类型：server - 后端上传， client - 前端直连上传，仅支持 S3 服务
+ VITE_UPLOAD_TYPE=server
+@@ -33,5 +36,8 @@ VITE_MALL_H5_DOMAIN='http://localhost:3000'
  # 验证码的开关
  VITE_APP_CAPTCHA_ENABLE=false
  

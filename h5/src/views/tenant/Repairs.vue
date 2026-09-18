@@ -1,44 +1,59 @@
 <template>
-  <div>
-    <el-card>
-      <div class="toolbar">
-        <span class="title">我的报修</span>
-        <el-button type="primary" @click="openReport">我要报修</el-button>
-      </div>
-      <el-table :data="list" v-loading="loading">
-        <el-table-column prop="orderNo" label="工单编号" width="170" show-overflow-tooltip />
-        <el-table-column prop="repairType" label="报修类型" width="100" />
-        <el-table-column prop="description" label="问题描述" show-overflow-tooltip />
-        <el-table-column label="状态" width="90">
-          <template #default="s">
-            <el-tag :type="statusType(s.row.status)">{{ statusLabel(s.row.status) }}</el-tag>
+  <AppPage title="我的报修">
+    <template #actions>
+      <el-button type="primary" @click="openReport">我要报修</el-button>
+    </template>
+
+    <CardList :data="list" :loading="loading" empty-text="还没有报修记录">
+      <template #item="{ row }">
+        <InfoCard
+          :title="row.repairType || '报修'"
+          :subtitle="row.orderNo"
+          :tags="tagsOf(row)"
+          :fields="fieldsOf(row)"
+        >
+          <template #actions>
+            <el-button v-if="row.status === 2" link type="success" @click="handleConfirm(row.id)">
+              确认完成
+            </el-button>
           </template>
-        </el-table-column>
-        <el-table-column prop="repairDescription" label="维修说明" show-overflow-tooltip />
-        <el-table-column label="操作" width="110">
-          <template #default="s">
-            <el-button v-if="s.row.status === 2" link type="success" @click="handleConfirm(s.row.id)">确认完成</el-button>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+        </InfoCard>
+      </template>
+    </CardList>
 
     <el-dialog v-model="reportVisible" title="我要报修" width="520px">
       <el-form :model="form" label-width="90px">
-        <el-form-item label="房源 ID">
-          <el-input-number v-model="form.houseId" :min="1" class="w-full" placeholder="请输入房源 ID（见我的合同）" />
+        <el-form-item label="报修房源">
+          <el-select
+            v-model="form.houseId"
+            class="u-w-full"
+            placeholder="请选择要报修的房源"
+            :loading="housesLoading"
+          >
+            <el-option v-for="h in myHouses" :key="h.houseId" :label="h.label" :value="h.houseId" />
+          </el-select>
+          <div class="u-tip">只列出你正在租住的房源</div>
         </el-form-item>
         <el-form-item label="报修类型">
-          <el-select v-model="form.repairType" class="w-full">
-            <el-option v-for="t in ['水电维修', '家电维修', '管道疏通', '门窗维修', '墙面地面', '其他']" :key="t" :label="t" :value="t" />
+          <el-select v-model="form.repairType" class="u-w-full">
+            <el-option
+              v-for="t in ['水电维修', '家电维修', '管道疏通', '门窗维修', '墙面地面', '其他']"
+              :key="t"
+              :label="t"
+              :value="t"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="问题描述">
           <el-input v-model="form.description" type="textarea" placeholder="请描述问题" />
         </el-form-item>
         <el-form-item label="期望上门时间">
-          <el-date-picker v-model="form.expectedTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" class="w-full" />
+          <el-date-picker
+            v-model="form.expectedTime"
+            type="datetime"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            class="u-w-full"
+          />
         </el-form-item>
         <el-form-item label="优先级">
           <el-radio-group v-model="form.priority">
@@ -53,17 +68,26 @@
         <el-button @click="reportVisible = false">取消</el-button>
       </template>
     </el-dialog>
-  </div>
+  </AppPage>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getTenantRepairs, createTenantRepairOrder, confirmTenantRepairOrder } from '../../api'
+import {
+  confirmTenantRepairOrder,
+  createTenantRepairOrder,
+  getTenantContracts,
+  getTenantRepairs
+} from '../../api'
+import AppPage from '../../components/AppPage.vue'
+import CardList from '../../components/CardList.vue'
+import InfoCard from '../../components/InfoCard.vue'
 
 const loading = ref(false)
 const list = ref([])
 
+// 报修状态两端不同（业主端把 4 叫「已驳回(退回重做)」），留在本页
 const statusMap = [
   { value: 0, label: '待处理' },
   { value: 1, label: '处理中' },
@@ -73,6 +97,13 @@ const statusMap = [
 ]
 const statusLabel = (s) => statusMap.find((i) => i.value === s)?.label || '-'
 const statusType = (s) => (s === 3 ? 'success' : s === 4 ? 'danger' : s === 2 ? 'warning' : 'info')
+
+const tagsOf = (row) => [{ text: statusLabel(row.status), type: statusType(row.status) }]
+
+const fieldsOf = (row) => [
+  { label: '问题描述', value: row.description, span: 2, clamp: 2 },
+  { label: '维修说明', value: row.repairDescription, span: 2, clamp: 2 }
+]
 
 const getList = async () => {
   loading.value = true
@@ -84,6 +115,7 @@ const getList = async () => {
   }
 }
 
+// ===== 报修 =====
 const reportVisible = ref(false)
 const form = reactive({
   houseId: undefined,
@@ -93,18 +125,49 @@ const form = reactive({
   priority: 0
 })
 
-const openReport = () => {
+// 报修房源下拉：数据来自「我租住的房源」，即合同处于 2-生效中 / 3-即将到期 / 4-退租处理中。
+// 5-已到期 / 6-已退租 / 7-已取消 的合同不再列出（人已经不住那儿了）。
+// 后端还会再校验一次，前端只是让选的时候不会选错。
+const ACTIVE_CONTRACT_STATUS = [2, 3, 4]
+
+const housesLoading = ref(false)
+const myHouses = ref([])
+
+const contractHouseLabel = (contract) =>
+  `${contract.communityName || ''}${contract.buildingNo || ''}号楼${contract.roomNo || ''}`
+
+const loadMyHouses = async () => {
+  housesLoading.value = true
+  try {
+    const data = await getTenantContracts({ pageNo: 1, pageSize: 100 })
+    const seen = new Set()
+    myHouses.value = (data.list || [])
+      .filter((c) => ACTIVE_CONTRACT_STATUS.includes(c.status))
+      // 同一房源可能有多份历史合同，按 houseId 去重
+      .filter((c) => (seen.has(c.houseId) ? false : seen.add(c.houseId)))
+      .map((c) => ({ houseId: c.houseId, label: contractHouseLabel(c) }))
+  } finally {
+    housesLoading.value = false
+  }
+}
+
+const openReport = async () => {
   form.houseId = undefined
   form.repairType = '水电维修'
   form.description = ''
   form.expectedTime = ''
   form.priority = 0
   reportVisible.value = true
+  await loadMyHouses()
+  // 只有一处房源时直接选中，省一步操作
+  if (myHouses.value.length === 1) {
+    form.houseId = myHouses.value[0].houseId
+  }
 }
 
 const submitReport = async () => {
   if (!form.houseId || !form.repairType || !form.description) {
-    ElMessage.warning('请填写房源、报修类型和问题描述')
+    ElMessage.warning('请选择报修房源，并填写报修类型和问题描述')
     return
   }
   await createTenantRepairOrder(form)
@@ -124,19 +187,3 @@ const handleConfirm = async (id) => {
 
 onMounted(getList)
 </script>
-
-<style scoped>
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-.title {
-  font-size: 16px;
-  font-weight: 600;
-}
-.w-full {
-  width: 100%;
-}
-</style>

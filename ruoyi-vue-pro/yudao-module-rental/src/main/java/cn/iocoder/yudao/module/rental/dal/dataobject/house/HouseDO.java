@@ -79,6 +79,13 @@ public class HouseDO extends BaseDO {
      */
     private BigDecimal deposit;
     /**
+     * 付款方式：押N付M（N=押几个月，M=一次付几个月，各自 1~3）
+     *
+     * 押金 = N × 月租金；首期应缴 = 押金 + M × 月租金，账期 M 个月。
+     * 属于房源属性，由房东设定，租客申请时不可更改。
+     */
+    private String paymentMethod;
+    /**
      * 配套设施，JSON 格式
      */
     private String facilities;

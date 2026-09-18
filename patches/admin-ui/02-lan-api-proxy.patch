@@ -1,0 +1,34 @@
+diff --git a/vite.config.ts b/vite.config.ts
+index ff253825b..b203d483d 100644
+--- a/vite.config.ts
++++ b/vite.config.ts
+@@ -35,15 +35,20 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
+             port: env.VITE_PORT, // 端口号
+             host: "0.0.0.0",
+             open: env.VITE_OPEN === 'true',
+-            // 本地跨域代理. 目前注释的原因：暂时没有用途，server 端已经支持跨域
+-            // proxy: {
+-            //   ['/admin-api']: {
+-            //     target: env.VITE_BASE_URL,
+-            //     ws: false,
+-            //     changeOrigin: true,
+-            //     rewrite: (path) => path.replace(new RegExp(`^/admin-api`), ''),
+-            //   },
+-            // },
++            // 本地跨域代理。
++            // .env.local 里 VITE_BASE_URL 已置空，接口一律走相对路径 /admin-api，
++            // 由这里转发到本机后端。这样从局域网里别的电脑/手机打开管理端时，
++            // 请求会打到「当前访问的这台机器」，而不是访问者自己的 localhost。
++            //
++            // 注意 target 必须写死本机 127.0.0.1，不能用 env.VITE_BASE_URL —— 它现在是空的。
++            // 后端和前端跑在同一台机器上，所以这里用 127.0.0.1 是对的。
++            proxy: {
++                '/admin-api': {
++                    target: 'http://127.0.0.1:48080',
++                    ws: false,
++                    changeOrigin: true,
++                },
++            },
+         },
+         // 项目使用的vite插件。 单独提取到build/vite/plugin中管理
+         plugins: createVitePlugins(isBuild, env),

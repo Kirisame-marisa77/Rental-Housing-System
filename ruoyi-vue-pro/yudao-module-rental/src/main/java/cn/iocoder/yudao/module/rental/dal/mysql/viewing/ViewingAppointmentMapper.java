@@ -72,4 +72,18 @@ public interface ViewingAppointmentMapper extends BaseMapperX<ViewingAppointment
                 .eq(ViewingAppointmentDO::getStatus, fromStatus));
     }
 
+    /**
+     * 取消某租客所有未结束的看房预约（注销账号时调用）
+     *
+     * 0-待确认 / 1-已确认 → 3-已取消。
+     * 不处理的话房东端会挂着一条永远联系不上人的预约，而且该时段仍被
+     * selectCountBySlot 算作占用，会挡住别的租客预约。
+     */
+    default int cancelActiveByTenant(Long tenantUserId) {
+        return update(null, new LambdaUpdateWrapper<ViewingAppointmentDO>()
+                .eq(ViewingAppointmentDO::getTenantUserId, tenantUserId)
+                .in(ViewingAppointmentDO::getStatus, 0, 1)
+                .set(ViewingAppointmentDO::getStatus, 3));
+    }
+
 }

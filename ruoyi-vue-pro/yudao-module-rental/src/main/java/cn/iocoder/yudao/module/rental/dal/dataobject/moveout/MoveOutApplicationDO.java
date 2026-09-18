@@ -59,13 +59,19 @@ public class MoveOutApplicationDO extends BaseDO {
      */
     private Long settlementId;
     /**
-     * 状态：0-待处理，1-已处理
+     * 状态：0-待处理，1-已处理，2-已驳回
      */
     private Integer status;
     /**
-     * 处理人 ID，关联 sys_user
+     * 处理人 ID
+     *
+     * handlerType=0 时关联 sys_user（管理员），=1 时关联 rental_owner_info（业主）
      */
     private Long handlerId;
+    /**
+     * 处理人类型：0-管理员，1-业主
+     */
+    private Integer handlerType;
     /**
      * 处理时间
      */
@@ -78,7 +84,7 @@ public class MoveOutApplicationDO extends BaseDO {
      */
     private Integer inspectionResult;
     /**
-     * 损坏维修费用（管理员手动录入）
+     * 损坏维修费用（处理人手动录入）
      */
     private BigDecimal repairFee;
     /**
@@ -86,7 +92,7 @@ public class MoveOutApplicationDO extends BaseDO {
      */
     private String repairFeeDesc;
     /**
-     * 管理员备注
+     * 处理备注
      */
     private String remark;
     /**

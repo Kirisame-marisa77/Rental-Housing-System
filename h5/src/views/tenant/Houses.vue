@@ -1,29 +1,33 @@
 <template>
   <div>
-    <el-card>
-      <div class="toolbar">
-        <span class="title">找房（上架房源）</span>
-      </div>
-      <el-table :data="list" v-loading="loading">
-        <el-table-column prop="communityName" label="小区" show-overflow-tooltip />
-        <el-table-column label="楼栋/房号" width="110">
-          <template #default="s">{{ s.row.buildingNo }}/{{ s.row.roomNo }}</template>
-        </el-table-column>
-        <el-table-column prop="layout" label="户型" width="130" show-overflow-tooltip />
-        <el-table-column prop="squareArea" label="面积(㎡)" width="90" />
-        <el-table-column prop="monthlyRent" label="月租金(元)" width="110" />
-        <el-table-column prop="decoration" label="装修" width="80" />
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="s">
-            <el-button link :type="isFavorite(s.row.id) ? 'warning' : 'info'" @click="toggleFavorite(s.row)">
-              {{ isFavorite(s.row.id) ? '已收藏' : '收藏' }}
-            </el-button>
-            <el-button link type="success" @click="openAppointment(s.row)">预约看房</el-button>
-            <el-button link type="primary" @click="openApply(s.row)">申请</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+    <AppPage title="找房" subtitle="上架房源">
+      <CardList :data="list" :loading="loading" empty-text="当前没有可租的房源">
+        <template #item="{ row }">
+          <!-- 整卡可点进详情，取代原来「小区」列上的 el-link -->
+          <InfoCard
+            :title="houseTitle(row)"
+            :subtitle="row.description"
+            :tags="tagsOf(row)"
+            :fields="fieldsOf(row)"
+            clickable
+            @click="goDetail(row)"
+          >
+            <template #actions>
+              <el-button link type="primary" @click="goDetail(row)">详情</el-button>
+              <el-button
+                link
+                :type="isFavorite(row.id) ? 'warning' : 'info'"
+                @click="toggleFavorite(row)"
+              >
+                {{ isFavorite(row.id) ? '已收藏' : '收藏' }}
+              </el-button>
+              <el-button link type="success" @click="openAppointment(row)">预约看房</el-button>
+              <el-button link type="primary" @click="openApply(row)">申请</el-button>
+            </template>
+          </InfoCard>
+        </template>
+      </CardList>
+    </AppPage>
 
     <el-dialog v-model="applyVisible" title="提交租房申请" width="520px">
       <el-form :model="form" label-width="110px">
@@ -31,21 +35,28 @@
           <span>{{ currentHouse?.communityName }} {{ currentHouse?.buildingNo }}/{{ currentHouse?.roomNo }}</span>
         </el-form-item>
         <el-form-item label="期望入住日期">
-          <el-date-picker v-model="form.moveInDate" type="date" value-format="YYYY-MM-DD" class="w-full" />
+          <el-date-picker v-model="form.moveInDate" type="date" value-format="YYYY-MM-DD" class="u-w-full" />
         </el-form-item>
         <el-form-item label="租期(月)">
-          <el-input-number v-model="form.leaseTerm" :min="1" :max="120" class="w-full" />
+          <el-input-number v-model="form.leaseTerm" :min="1" :max="120" class="u-w-full" />
         </el-form-item>
+        <!-- 付款方式是房东出租房时定下的条件，和租金押金一样属于房源属性，租客不可更改 -->
         <el-form-item label="付款方式">
-          <el-select v-model="form.paymentMethod" class="w-full">
-            <el-option v-for="p in ['押一付一', '押一付三', '押二付一', '押二付三', '自定义']" :key="p" :label="p" :value="p" />
-          </el-select>
+          <el-input :model-value="form.paymentMethod" disabled class="u-w-full" />
         </el-form-item>
+        <!-- 租金与押金是房源属性，由房东设定，租客只能看不能改（后端也会用房源的值覆盖） -->
         <el-form-item label="月租金(元)">
-          <el-input-number v-model="form.monthlyRent" :min="0" :precision="2" class="w-full" />
+          <el-input :model-value="form.monthlyRent" disabled class="u-w-full" />
         </el-form-item>
         <el-form-item label="押金(元)">
-          <el-input-number v-model="form.depositAmount" :min="0" :precision="2" class="w-full" />
+          <el-input :model-value="form.depositAmount" disabled class="u-w-full" />
+        </el-form-item>
+        <el-form-item label="首期应缴(元)">
+          <el-input :model-value="firstPayment.toFixed(2)" disabled class="u-w-full" />
+          <div class="tip">
+            押金 {{ Number(form.depositAmount || 0).toFixed(2) }}
+            + {{ payMonthsOf(form.paymentMethod) }} 个月租金，租期从入住日开始算
+          </div>
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="form.tenantRemark" type="textarea" />
@@ -68,7 +79,7 @@
             type="date"
             value-format="YYYY-MM-DD"
             :disabled-date="disabledDate"
-            class="w-full"
+            class="u-w-full"
           />
         </el-form-item>
         <el-form-item label="开始时间">
@@ -78,7 +89,7 @@
             step="01:00"
             end="20:00"
             placeholder="请选择开始时间"
-            class="w-full"
+            class="u-w-full"
           />
         </el-form-item>
         <el-form-item label="结束时间">
@@ -88,7 +99,7 @@
             step="01:00"
             end="20:00"
             placeholder="请选择结束时间"
-            class="w-full"
+            class="u-w-full"
           />
         </el-form-item>
       </el-form>
@@ -101,7 +112,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   getTenantHouses,
@@ -111,9 +123,38 @@ import {
   cancelTenantFavorite,
   createTenantAppointment
 } from '../../api'
+import { DEFAULT_PAYMENT_METHOD, calcFirstPayment, payMonthsOf } from '../../utils/payment'
+import AppPage from '../../components/AppPage.vue'
+import CardList from '../../components/CardList.vue'
+import InfoCard from '../../components/InfoCard.vue'
+
+const router = useRouter()
 
 const loading = ref(false)
 const list = ref([])
+
+const goDetail = (house) => router.push(`/tenant/houses/${house.id}`)
+
+// 卡片标题 = 「小区 楼栋号楼 房号室」，与详情页保持一致
+const houseTitle = (row) =>
+  [row.communityName, row.buildingNo && `${row.buildingNo}号楼`, row.roomNo && `${row.roomNo}室`]
+    .filter(Boolean)
+    .join(' ')
+
+// 列表接口只返回上架房源，但保留状态标签让租客一眼确认可租
+const tagsOf = (row) => [
+  { text: '可租', type: 'success' },
+  ...(row.decoration ? [{ text: row.decoration, type: 'info' }] : [])
+]
+
+const fieldsOf = (row) => [
+  { label: '户型', value: row.layout },
+  { label: '面积', value: row.squareArea != null ? `${row.squareArea}㎡` : '-' },
+  { label: '月租金', value: `¥${row.monthlyRent ?? 0}`, type: 'amount' },
+  { label: '押金', value: `¥${row.deposit ?? 0}` },
+  { label: '付款方式', value: row.paymentMethod },
+  { label: '朝向', value: row.orientation }
+]
 
 // 已收藏房源 ID 集合。一次性拉全量、本地比对，避免逐行请求；
 // 收藏量上万时这个数组会变大，届时改为「按当前页 houseIds 批量查」。
@@ -189,18 +230,24 @@ const form = reactive({
   houseId: undefined,
   moveInDate: '',
   leaseTerm: 12,
-  paymentMethod: '押一付三',
+  paymentMethod: DEFAULT_PAYMENT_METHOD,
   monthlyRent: undefined,
   depositAmount: undefined,
   tenantRemark: ''
 })
+
+// 首期应缴 = 押金 + 付数 × 月租金，全部取自房源，租客改不了
+const firstPayment = computed(() =>
+  calcFirstPayment(form.monthlyRent, form.depositAmount, form.paymentMethod)
+)
 
 const openApply = (house) => {
   currentHouse.value = house
   form.houseId = house.id
   form.moveInDate = ''
   form.leaseTerm = 12
-  form.paymentMethod = '押一付三'
+  // 租金、押金、付款方式三项一律用房源上的值，页面上也是只读的
+  form.paymentMethod = house.paymentMethod || DEFAULT_PAYMENT_METHOD
   form.monthlyRent = house.monthlyRent
   form.depositAmount = house.deposit
   form.tenantRemark = ''

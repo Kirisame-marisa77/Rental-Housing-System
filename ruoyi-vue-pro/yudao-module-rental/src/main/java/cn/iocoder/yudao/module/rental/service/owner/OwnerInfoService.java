@@ -84,4 +84,15 @@ public interface OwnerInfoService {
      */
     void changePassword(Long ownerId, String oldPassword, String newPassword);
 
+    /**
+     * 注销账号（逻辑删除，并释放手机号与身份证号以便重新注册）
+     *
+     * 前置条件：名下没有出租中/签约中的房源，且名下房源没有未结束的合同。
+     * 通过校验后会把名下房源全部下架。历史合同与账单不受影响。
+     *
+     * @param ownerId  业主编号（来自登录态）
+     * @param password 登录密码，二次确认
+     */
+    void deregister(Long ownerId, String password);
+
 }

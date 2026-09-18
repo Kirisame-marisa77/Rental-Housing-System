@@ -1,80 +1,48 @@
 <template>
-  <el-card>
-    <div class="toolbar">
-      <span class="title">我的账单</span>
-      <span class="hint">名下房源产生的账单，仅供查看；缴费由租客或管理员操作</span>
-    </div>
+  <AppPage title="我的账单" subtitle="只读">
+    <el-alert
+      type="info"
+      :closable="false"
+      show-icon
+      class="hint"
+      title="名下房源产生的账单，仅供查看；缴费由租客或管理员操作"
+    />
 
     <el-tabs v-model="tab" @tab-change="onTabChange">
-      <el-tab-pane label="租金/物业费账单" name="rent" />
-      <el-tab-pane label="水电费账单" name="utility" />
+      <el-tab-pane label="租金/物业费" name="rent" />
+      <el-tab-pane label="水电费" name="utility" />
     </el-tabs>
 
-    <!-- 租金 / 物业费 -->
-    <el-table v-if="tab === 'rent'" :data="rentList" v-loading="loading" size="small">
-      <el-table-column prop="billNo" label="账单编号" width="200" show-overflow-tooltip />
-      <el-table-column label="房源" min-width="160" show-overflow-tooltip>
-        <template #default="s">{{ houseText(s.row) }}</template>
-      </el-table-column>
-      <el-table-column label="类型" width="90">
-        <template #default="s">{{ s.row.billType === 0 ? '首期账单' : '周期账单' }}</template>
-      </el-table-column>
-      <el-table-column prop="rentAmount" label="租金" width="90" />
-      <el-table-column prop="depositAmount" label="押金" width="90" />
-      <el-table-column prop="propertyFeeAmount" label="物业费" width="90" />
-      <el-table-column label="应缴总额" width="100">
-        <template #default="s"><span class="amount">¥{{ s.row.totalAmount }}</span></template>
-      </el-table-column>
-      <el-table-column prop="dueDate" label="缴费截止" width="110" />
-      <el-table-column label="状态" width="90">
-        <template #default="s">
-          <el-tag :type="payType(s.row.payStatus)">{{ payLabel(s.row.payStatus) }}</el-tag>
-        </template>
-      </el-table-column>
-    </el-table>
-
-    <!-- 水电费 -->
-    <el-table v-else :data="utilityList" v-loading="loading" size="small">
-      <el-table-column prop="billNo" label="账单编号" width="200" show-overflow-tooltip />
-      <el-table-column label="房源" min-width="160" show-overflow-tooltip>
-        <template #default="s">{{ houseText(s.row) }}</template>
-      </el-table-column>
-      <el-table-column label="费用类型" width="90">
-        <template #default="s">{{ feeLabel(s.row.feeType) }}</template>
-      </el-table-column>
-      <el-table-column prop="waterAmount" label="水费" width="90" />
-      <el-table-column prop="electricityAmount" label="电费" width="90" />
-      <el-table-column label="应缴总额" width="100">
-        <template #default="s"><span class="amount">¥{{ s.row.totalAmount }}</span></template>
-      </el-table-column>
-      <el-table-column prop="dueDate" label="缴费截止" width="110" />
-      <el-table-column label="状态" width="90">
-        <template #default="s">
-          <el-tag :type="payType(s.row.payStatus)">{{ payLabel(s.row.payStatus) }}</el-tag>
-        </template>
-      </el-table-column>
-    </el-table>
-
-    <el-empty v-if="!loading && !currentList.length" description="暂无账单" :image-size="60" />
-  </el-card>
+    <CardList
+      :data="currentList"
+      :loading="loading"
+      empty-text="暂无账单"
+    >
+      <template #item="{ row }">
+        <InfoCard
+          :title="`¥${row.totalAmount ?? 0}`"
+          :subtitle="row.billNo"
+          :tags="tagsOf(row)"
+          :fields="fieldsOf(row)"
+        />
+      </template>
+    </CardList>
+  </AppPage>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getOwnerRentBills, getOwnerUtilityBills } from '../../api'
+import { payStatusLabel, payStatusType } from '../../utils/dict'
+import { houseText } from '../../utils/house'
+import AppPage from '../../components/AppPage.vue'
+import CardList from '../../components/CardList.vue'
+import InfoCard from '../../components/InfoCard.vue'
 
 const tab = ref('rent')
 const loading = ref(false)
 const rentList = ref([])
 const utilityList = ref([])
-
-const payMap = [
-  { value: 0, label: '待缴费' },
-  { value: 1, label: '已缴费' },
-  { value: 2, label: '已逾期' }
-]
-const payLabel = (s) => payMap.find((i) => i.value === s)?.label || '-'
-const payType = (s) => (s === 1 ? 'success' : s === 2 ? 'danger' : 'warning')
 
 const feeMap = [
   { value: 0, label: '水费' },
@@ -83,15 +51,33 @@ const feeMap = [
 ]
 const feeLabel = (s) => feeMap.find((i) => i.value === s)?.label || '-'
 
-// 后端不做地址兜底，拼不出来时显示 '-'，不回退到裸的 houseId
-const houseText = (row) => {
-  const addr = [row?.communityName, row?.buildingNo && `${row.buildingNo}栋`, row?.roomNo && `${row.roomNo}室`]
-    .filter(Boolean)
-    .join(' ')
-  return addr || '-'
-}
-
 const currentList = computed(() => (tab.value === 'rent' ? rentList.value : utilityList.value))
+
+const tagsOf = (row) => [
+  {
+    text: tab.value === 'rent' ? (row.billType === 0 ? '首期账单' : '周期账单') : feeLabel(row.feeType),
+    type: 'primary'
+  },
+  { text: payStatusLabel(row.payStatus), type: payStatusType(row.payStatus) }
+]
+
+// 两个 tab 的字段不同，按当前 tab 分别给出
+// 房源地址拼不出来时显示 '-'，不回退到裸的 houseId
+const fieldsOf = (row) =>
+  tab.value === 'rent'
+    ? [
+        { label: '房源', value: houseText(row, { style: 'unit', fallback: 'dash' }) },
+        { label: '租金', value: `¥${row.rentAmount ?? 0}` },
+        { label: '押金', value: `¥${row.depositAmount ?? 0}` },
+        { label: '物业费', value: `¥${row.propertyFeeAmount ?? 0}` },
+        { label: '缴费截止', value: row.dueDate }
+      ]
+    : [
+        { label: '房源', value: houseText(row, { style: 'unit', fallback: 'dash' }) },
+        { label: '水费', value: `¥${row.waterAmount ?? 0}` },
+        { label: '电费', value: `¥${row.electricityAmount ?? 0}` },
+        { label: '缴费截止', value: row.dueDate }
+      ]
 
 // 只加载当前 tab，避免每次进页面都打两个接口
 const load = async () => {
@@ -117,22 +103,8 @@ onMounted(load)
 </script>
 
 <style scoped>
-.toolbar {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 4px;
-}
-.title {
-  font-size: 16px;
-  font-weight: 600;
-}
+/* 只读提示条与 tab 之间的间距 */
 .hint {
-  font-size: 12px;
-  color: #999;
-}
-.amount {
-  color: #f56c6c;
-  font-weight: 600;
+  margin-bottom: 10px;
 }
 </style>
